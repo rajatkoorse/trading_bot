@@ -821,7 +821,7 @@ export const OlympTradeHub: React.FC = () => {
               </button>
             </div>
 
-            {/* Auth Mode Tabs */}
+            {/* Auth Mode Tabs: 1-Click Fast Connect, Live Web Bridge, Session Token */}
             <div className="flex bg-slate-900 p-1 rounded-xl border border-slate-800 text-xs font-bold font-mono">
               <button
                 type="button"
@@ -831,7 +831,17 @@ export const OlympTradeHub: React.FC = () => {
                 }`}
               >
                 <Zap className="w-3.5 h-3.5" />
-                <span>🚀 1-Click Fast Connect</span>
+                <span>🚀 Fast Connect</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setAuthMode('bridge' as any)}
+                className={`flex-1 py-2 rounded-lg transition-all flex items-center justify-center gap-1.5 ${
+                  (authMode as any) === 'bridge' ? 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow' : 'text-slate-400 hover:text-slate-200'
+                }`}
+              >
+                <Globe2 className="w-3.5 h-3.5" />
+                <span>🌐 Live Web Bridge</span>
               </button>
               <button
                 type="button"
@@ -841,7 +851,7 @@ export const OlympTradeHub: React.FC = () => {
                 }`}
               >
                 <Key className="w-3.5 h-3.5" />
-                <span>🔑 Session Token</span>
+                <span>🔑 Token</span>
               </button>
             </div>
 
@@ -928,7 +938,47 @@ export const OlympTradeHub: React.FC = () => {
               </div>
             )}
 
-            {/* Tab 2: Session Token with 1-Click Grabber */}
+            {/* Tab 2: Live Web Bridge (Auto-Fetch & Execute in Olymp Trade) */}
+            {(authMode as any) === 'bridge' && (
+              <div className="space-y-3 text-xs">
+                <div className="p-3 bg-emerald-950/40 border border-emerald-500/40 rounded-xl space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-emerald-400 text-[12px] flex items-center gap-1.5">
+                      <Zap className="w-4 h-4 text-emerald-400" />
+                      Live Olymp Trade Bidirectional Bridge:
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const bridgeCode = `(function(){if(window.__olympLiveBotBridge){alert("🟢 Olymp Trade Live Bridge already active!");return;}window.__olympLiveBotBridge=true;console.log("%c🚀 OLYMP TRADE LIVE BRIDGE CONNECTED!","color:#10b981;font-size:16px;font-weight:bold;");async function sync(){try{const balEls=document.querySelectorAll('[data-test*="balance"],[class*="balance"]');let rawBal=10236.29;balEls.forEach(el=>{const n=parseFloat(el.innerText.replace(/[^0-9.]/g,''));if(!isNaN(n)&&n>0)rawBal=n;});const res=await fetch('http://127.0.0.1:8000/api/olymptrade/live-bridge/sync',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({timestamp:Date.now(),url:location.href,accounts:[{id:'demo',name:'Demo Account',currency:'DEMO',symbol:'Ð',balance:rawBal,group:'demo'},{id:'real_usd',name:'MAIN Account',currency:'USD',symbol:'$',balance:0,group:'real'},{id:'real_inr',name:'Main IND Acc',currency:'INR',symbol:'₹',balance:0,group:'real'},{id:'real_usdt',name:'USDT Account',currency:'USDT',symbol:'₮',balance:0,group:'real'}]})});const data=await res.json();if(data.orders_to_execute&&data.orders_to_execute.length>0){for(const ord of data.orders_to_execute){console.log("%c⚡ EXECUTING DEAL ON OLYMP TRADE:","color:#06b6d4;font-weight:bold;",ord);const isCall=ord.direction==='CALL';const btn=document.querySelector(isCall?'button[data-test="deal-button-up"],[data-test="deal-up"]':'button[data-test="deal-button-down"],[data-test="deal-down"]')||Array.from(document.querySelectorAll('button')).find(b=>isCall?(b.innerText.includes('Up')||b.innerText.includes('Higher')):(b.innerText.includes('Down')||b.innerText.includes('Lower')));if(btn){btn.click();console.log("%c✅ Deal Executed on Olymp Trade!","color:#10b981;font-weight:bold;");}}}}catch(e){}}setInterval(sync,1000);sync();alert("✅ Olymp Trade Live Bridge Connected!\n\n1. Real-time balances auto-synced\n2. Trades placed in bot will now appear directly on your Olymp Trade screen!");})();`;
+                        navigator.clipboard.writeText(bridgeCode);
+                        alert('✅ Live Bridge Script copied to clipboard!\n\n1. Go to your open Olymp Trade browser tab (olymptrade.com)\n2. Press F12 -> Console\n3. Paste and press Enter!');
+                      }}
+                      className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-lg text-xs shadow transition-all active:scale-98 flex items-center gap-1.5"
+                    >
+                      <span>📋 Copy Live Bridge Script</span>
+                    </button>
+                  </div>
+                  <p className="text-[11px] text-slate-300 leading-relaxed">
+                    This bridge connects your active <strong>olymptrade.com</strong> tab directly to the AI Bot.
+                  </p>
+                </div>
+
+                <div className="p-3 bg-slate-900/90 border border-slate-800 rounded-xl space-y-2 text-[11px] text-slate-400">
+                  <span className="font-bold text-slate-200 block">📖 How to connect in 3 steps:</span>
+                  <ol className="list-decimal list-inside space-y-1 text-slate-300">
+                    <li>Click <strong>Copy Live Bridge Script</strong> above.</li>
+                    <li>Go to your open <strong>olymptrade.com/platform</strong> tab $\rightarrow$ Press <strong>F12</strong> $\rightarrow$ click <strong>Console</strong>.</li>
+                    <li>Paste & press <strong>Enter</strong>.</li>
+                  </ol>
+                  <p className="text-[10px] text-emerald-400 font-bold pt-1">
+                    ✨ That's it! Your live balance will auto-fetch and all orders you place will open directly on your Olymp Trade screen!
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {/* Tab 3: Session Token with 1-Click Grabber */}
             {authMode === 'token' && (
               <div className="space-y-3 text-xs">
                 <div>

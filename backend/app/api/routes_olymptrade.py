@@ -1,3 +1,4 @@
+import time
 from fastapi import APIRouter, HTTPException, Query, Body
 from typing import List, Dict, Any, Optional
 
@@ -23,6 +24,23 @@ def connect_olymptrade(credentials: Dict[str, Any] = Body(...)):
 def disconnect_olymptrade():
     res = olymp_trade_broker.disconnect()
     return res
+
+@router.post("/live-bridge/sync")
+def sync_olymptrade_live_bridge(payload: Dict[str, Any] = Body(...)):
+    """
+    Called by the browser session bridge running on olymptrade.com.
+    Auto-syncs live balances and receives orders to execute live on Olymp Trade.
+    """
+    res = olymp_trade_broker.sync_live_bridge(payload)
+    return res
+
+@router.get("/live-bridge/status")
+def get_olymptrade_live_bridge_status():
+    return {
+        "bridge_active": olymp_trade_broker.is_live_bridge_active,
+        "last_sync_seconds_ago": int(time.time() - olymp_trade_broker.last_bridge_sync_time) if olymp_trade_broker.last_bridge_sync_time > 0 else None,
+        "pending_orders_count": len(olymp_trade_broker.pending_bridge_orders)
+    }
 
 @router.post("/switch-account")
 def switch_olymptrade_account(payload: Dict[str, Any] = Body(...)):

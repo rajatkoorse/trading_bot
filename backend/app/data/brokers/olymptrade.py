@@ -124,6 +124,11 @@ class OlympTradeBroker:
         
         self.open_positions: List[OlympTradePosition] = []
         self.closed_positions: List[OlympTradePosition] = []
+        
+        # Real-Time Browser Live Bridge
+        self.pending_bridge_orders: List[Dict[str, Any]] = []
+        self.is_live_bridge_active: bool = False
+        self.last_bridge_sync_time: float = 0.0
 
     def get_active_account(self) -> Dict[str, Any]:
         return self.accounts.get(self.active_account_id, self.accounts["demo"])
@@ -288,6 +293,45 @@ class OlympTradeBroker:
             "win_rate": win_rate
         }
 
+    def sync_live_bridge(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Receives real-time state from the Olymp Trade browser session (olymptrade.com):
+        - Live sub-account balances
+        - Active deal states
+        - Dispatches queued AI/User orders to be executed inside Olymp Trade!
+        """
+        self.is_live_bridge_active = True
+        self.last_bridge_sync_time = time.time()
+        self.is_connected = True
+        
+        user_id = payload.get("user_id")
+        if user_id:
+            self.user_id = str(user_id)
+            
+        incoming_accounts = payload.get("accounts")
+        if incoming_accounts and isinstance(incoming_accounts, list):
+            for acc in incoming_accounts:
+                acc_id = acc.get("id")
+                if acc_id and acc_id in self.accounts:
+                    if "balance" in acc and acc["balance"] is not None:
+                        self.accounts[acc_id]["balance"] = float(acc["balance"])
+                    if "name" in acc and acc["name"]:
+                        self.accounts[acc_id]["name"] = acc["name"]
+        elif "demo_balance" in payload and payload["demo_balance"] is not None:
+            self.accounts["demo"]["balance"] = float(payload["demo_balance"])
+
+        # Pop any orders waiting to be placed on Olymp Trade
+        orders_to_dispatch = list(self.pending_bridge_orders)
+        self.pending_bridge_orders.clear()
+
+        return {
+            "status": "success",
+            "active_account_id": self.active_account_id,
+            "orders_to_execute": orders_to_dispatch,
+            "accounts": list(self.accounts.values()),
+            "bridge_active": True
+        }
+
     def place_order(
         self,
         asset: str,
@@ -297,6 +341,7 @@ class OlympTradeBroker:
     ) -> Optional[Dict[str, Any]]:
         """
         Executes a real-time 24/7 trade on Olymp Trade (using active sub-account).
+        Also queues the order for live browser execution inside Olymp Trade.
         """
         if not self.is_connected:
             raise ValueError("Olymp Trade account is not connected. Please login first.")
@@ -328,7 +373,21 @@ class OlympTradeBroker:
         )
 
         self.open_positions.append(pos)
-        logger.info(f"[OLYMP TRADE] {pos.account_name} Order: {pos.direction} {pos.asset} @ {pos.entry_price} ({active['symbol']}{pos.amount}, {pos.duration_minutes}m)")
+        
+        # Queue for live Olymp Trade browser bridge execution
+        bridge_payload = {
+            "order_id": pos.id,
+            "asset": asset,
+            "direction": direction.upper(),
+            "amount": amount,
+            "duration_minutes": duration_minutes,
+            "account_id": self.active_account_id,
+            "currency_symbol": active["symbol"],
+            "timestamp": time.time()
+        }
+        self.pending_bridge_orders.append(bridge_payload)
+
+        logger.info(f"[OLYMP TRADE] {pos.account_name} Order: {pos.direction} {pos.asset} @ {pos.entry_price} ({active['symbol']}{pos.amount}, {pos.duration_minutes}m) [Queued for Live Olymp Trade Bridge]")
         return pos.to_dict()
 
     def update_ticks(self, asset_ticks: Dict[str, float]) -> List[Dict[str, Any]]:
