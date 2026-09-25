@@ -166,8 +166,18 @@ export const api = {
     return res.data;
   },
 
-  connectOlympTrade: async (credentials: { session_token?: string; user_id?: string }): Promise<any> => {
+  connectOlympTrade: async (credentials: { 
+    session_token?: string; 
+    user_id?: string; 
+    demo_balance?: number; 
+    real_balance?: number; 
+  }): Promise<any> => {
     const res = await axios.post(`${API_BASE}/olymptrade/connect`, credentials);
+    return res.data;
+  },
+
+  disconnectOlympTrade: async (): Promise<any> => {
+    const res = await axios.post(`${API_BASE}/olymptrade/disconnect`);
     return res.data;
   },
 

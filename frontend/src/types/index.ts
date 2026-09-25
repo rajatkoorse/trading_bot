@@ -214,6 +214,7 @@ export interface OlympTradeAccountStatus {
   winning_trades: number;
   win_rate: number;
   is_connected: boolean;
+  user_id?: string;
 }
 
 export interface GlobalCandleResponse {

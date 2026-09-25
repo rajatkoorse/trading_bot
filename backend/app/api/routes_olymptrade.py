@@ -13,8 +13,15 @@ def get_olymptrade_status():
     return bal
 
 @router.post("/connect")
-def connect_olymptrade(credentials: Dict[str, str] = Body(...)):
+def connect_olymptrade(credentials: Dict[str, Any] = Body(...)):
     res = olymp_trade_broker.connect(credentials)
+    if not res.get("success"):
+        raise HTTPException(status_code=400, detail=res.get("message", "Connection failed"))
+    return res
+
+@router.post("/disconnect")
+def disconnect_olymptrade():
+    res = olymp_trade_broker.disconnect()
     return res
 
 @router.post("/switch-account")
@@ -92,15 +99,20 @@ def place_olymptrade_order(
     amount: float = Body(..., gt=0),
     duration_minutes: int = Body(default=1, ge=1, le=60)
 ):
-    pos = olymp_trade_broker.place_order(
-        asset=asset,
-        direction=direction,
-        amount=amount,
-        duration_minutes=duration_minutes
-    )
-    if not pos:
-        raise HTTPException(status_code=400, detail="Insufficient account balance to place order.")
-    return {"status": "success", "order": pos}
+    try:
+        pos = olymp_trade_broker.place_order(
+            asset=asset,
+            direction=direction,
+            amount=amount,
+            duration_minutes=duration_minutes
+        )
+        if not pos:
+            raise HTTPException(status_code=400, detail="Failed to place order.")
+        return {"status": "success", "order": pos}
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/positions")
 def get_olymptrade_positions():

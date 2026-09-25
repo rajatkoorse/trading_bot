@@ -38,10 +38,14 @@ export const OlympTradeHub: React.FC = () => {
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [isSyncing, setIsSyncing] = useState<boolean>(false);
   
-  // Credentials modal
+  // Credentials modal & Login State
   const [isCredsOpen, setIsCredsOpen] = useState<boolean>(false);
+  const [authMode, setAuthMode] = useState<'token' | 'sync'>('token');
   const [sessionToken, setSessionToken] = useState<string>('');
   const [userId, setUserId] = useState<string>('');
+  const [inputDemoBal, setInputDemoBal] = useState<number>(10000);
+  const [inputRealBal, setInputRealBal] = useState<number>(0);
+  const [loginError, setLoginError] = useState<string>('');
 
   const chartContainerRef = useRef<HTMLDivElement | null>(null);
   const chartInstance = useRef<IChartApi | null>(null);
@@ -171,6 +175,11 @@ export const OlympTradeHub: React.FC = () => {
 
   // Order Placement (CALL / PUT)
   const handlePlaceOrder = async (direction: 'CALL' | 'PUT') => {
+    if (!account?.is_connected) {
+      setIsCredsOpen(true);
+      return;
+    }
+
     try {
       setIsSubmitting(true);
       await api.placeOlympTradeOrder({
@@ -187,7 +196,7 @@ export const OlympTradeHub: React.FC = () => {
       }
       refreshOlympData();
     } catch (e: any) {
-      alert(e.response?.data?.detail || 'Failed to place Olymp Trade order.');
+      alert(e.response?.data?.detail || e.message || 'Failed to place Olymp Trade order.');
     } finally {
       setIsSubmitting(false);
     }
@@ -201,13 +210,33 @@ export const OlympTradeHub: React.FC = () => {
     }
   };
 
-  const handleConnectToken = async () => {
+  const handleConnectAccount = async () => {
+    setLoginError('');
+    setIsSyncing(true);
     try {
-      await api.connectOlympTrade({ session_token: sessionToken, user_id: userId });
+      await api.connectOlympTrade({ 
+        session_token: sessionToken, 
+        user_id: userId,
+        demo_balance: Number(inputDemoBal),
+        real_balance: Number(inputRealBal)
+      });
       setIsCredsOpen(false);
       refreshOlympData();
-    } catch (e) {
-      alert('Connection failed.');
+    } catch (e: any) {
+      setLoginError(e.response?.data?.detail || 'Connection failed. Please verify your credentials.');
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
+  const handleDisconnectAccount = async () => {
+    if (window.confirm('Are you sure you want to disconnect your Olymp Trade account?')) {
+      try {
+        await api.disconnectOlympTrade();
+        refreshOlympData();
+      } catch (e) {
+        console.error('Failed to disconnect:', e);
+      }
     }
   };
 
@@ -219,8 +248,9 @@ export const OlympTradeHub: React.FC = () => {
     price: 1.0850
   };
 
+  const isConnected = account?.is_connected ?? false;
   const isDemo = (account?.active_account ?? 'demo') === 'demo';
-  const balance = isDemo ? (account?.demo_balance ?? 10000) : (account?.real_balance ?? 0);
+  const balance = isDemo ? (account?.demo_balance ?? 0) : (account?.real_balance ?? 0);
   const potentialProfit = tradeAmount * (currentAssetInfo.payout / 100);
 
   return (
@@ -239,10 +269,17 @@ export const OlympTradeHub: React.FC = () => {
               <h2 className="text-base font-bold text-white tracking-wide">
                 Olymp Trade 24/7 Global Engine
               </h2>
-              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
-                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
-                24/7 REALTIME (FOREX • CRYPTO • COMMODITIES)
-              </span>
+              {isConnected ? (
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
+                  CONNECTED ({account?.user_id || 'ACTIVE'})
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider bg-amber-500/15 text-amber-400 border border-amber-500/30">
+                  <span className="w-2 h-2 rounded-full bg-amber-400"></span>
+                  NOT LOGGED IN
+                </span>
+              )}
             </div>
             <p className="text-xs text-slate-400 font-mono mt-0.5">
               Fixed Time Trades (FTT) & Global CFD Execution • Always Active
@@ -250,48 +287,60 @@ export const OlympTradeHub: React.FC = () => {
           </div>
         </div>
 
-        {/* Right: Account Mode Toggle (Demo $10,000 vs Real Live) */}
+        {/* Right: Account Mode Toggle & Login Controller */}
         <div className="flex items-center gap-2.5">
-          <div className="flex bg-slate-900 p-1 rounded-xl border border-slate-800 text-xs font-bold font-mono">
-            <button
-              onClick={() => handleSwitchAccount('demo')}
-              className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg transition-all ${
-                isDemo
-                  ? 'bg-emerald-600 text-white shadow-md'
-                  : 'text-slate-400 hover:text-slate-200'
-              }`}
-            >
-              <span>🧪 DEMO ACCOUNT (${account?.demo_balance?.toLocaleString('en-US') ?? '10,000'})</span>
-            </button>
-            <button
-              onClick={() => handleSwitchAccount('real')}
-              className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg transition-all ${
-                !isDemo
-                  ? 'bg-amber-600 text-white shadow-md animate-pulse'
-                  : 'text-slate-400 hover:text-slate-200'
-              }`}
-            >
-              <span>⚡ REAL LIVE ACCOUNT (${account?.real_balance?.toLocaleString('en-US') ?? '0.00'})</span>
-            </button>
-          </div>
+          {isConnected ? (
+            <>
+              <div className="flex bg-slate-900 p-1 rounded-xl border border-slate-800 text-xs font-bold font-mono">
+                <button
+                  onClick={() => handleSwitchAccount('demo')}
+                  className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg transition-all ${
+                    isDemo
+                      ? 'bg-emerald-600 text-white shadow-md'
+                      : 'text-slate-400 hover:text-slate-200'
+                  }`}
+                >
+                  <span>🧪 DEMO ACCOUNT (${account?.demo_balance?.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) ?? '0.00'})</span>
+                </button>
+                <button
+                  onClick={() => handleSwitchAccount('real')}
+                  className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg transition-all ${
+                    !isDemo
+                      ? 'bg-amber-600 text-white shadow-md animate-pulse'
+                      : 'text-slate-400 hover:text-slate-200'
+                  }`}
+                >
+                  <span>⚡ REAL LIVE ACCOUNT (${account?.real_balance?.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) ?? '0.00'})</span>
+                </button>
+              </div>
 
-          {isDemo && (
+              {isDemo && (
+                <button
+                  onClick={handleResetDemo}
+                  title="Reset Demo Wallet to $10,000"
+                  className="p-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl border border-slate-700 transition-all"
+                >
+                  <RotateCcw className="w-4 h-4" />
+                </button>
+              )}
+
+              <button
+                onClick={handleDisconnectAccount}
+                title="Disconnect Olymp Trade account"
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/30 rounded-xl text-xs font-semibold transition-all"
+              >
+                <span>Disconnect</span>
+              </button>
+            </>
+          ) : (
             <button
-              onClick={handleResetDemo}
-              title="Reset Demo Wallet to $10,000"
-              className="p-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl border border-slate-700 transition-all"
+              onClick={() => setIsCredsOpen(true)}
+              className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white font-bold rounded-xl text-xs shadow-lg shadow-cyan-600/30 transition-all active:scale-98 animate-pulse"
             >
-              <RotateCcw className="w-4 h-4" />
+              <Key className="w-4 h-4 text-white" />
+              <span>🔑 Login to Olymp Trade Account</span>
             </button>
           )}
-
-          <button
-            onClick={() => setIsCredsOpen(true)}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600/20 hover:bg-blue-600/30 text-blue-300 border border-blue-500/40 rounded-xl text-xs font-semibold transition-all"
-          >
-            <Key className="w-3.5 h-3.5 text-blue-400" />
-            <span>Session Token</span>
-          </button>
         </div>
 
       </div>
@@ -389,6 +438,31 @@ export const OlympTradeHub: React.FC = () => {
           );
         })}
       </div>
+
+      {/* Disconnected Warning / Login Prompt Banner */}
+      {!isConnected && (
+        <div className="bg-gradient-to-r from-amber-950/40 via-blue-950/30 to-amber-950/40 border border-amber-500/40 rounded-2xl p-4 flex flex-wrap items-center justify-between gap-3 shadow-lg animate-fadeIn">
+          <div className="flex items-center gap-3">
+            <div className="p-2.5 bg-amber-500/20 text-amber-400 rounded-xl">
+              <AlertCircle className="w-5 h-5" />
+            </div>
+            <div>
+              <h4 className="text-sm font-bold text-white">Olymp Trade Account Connection Required</h4>
+              <p className="text-xs text-slate-300">
+                Log in to link your personal Olymp Trade account so paper trading and live orders utilize your actual platform balances.
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => setIsCredsOpen(true)}
+            className="px-4 py-2 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-bold rounded-xl text-xs shadow transition-all active:scale-98 flex items-center gap-1.5"
+          >
+            <Key className="w-3.5 h-3.5" />
+            <span>Connect Account Now</span>
+          </button>
+        </div>
+      )}
 
       {/* 4. Main Trading Workspace: Chart (Left) & 1-Click Order Pad (Right) */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
@@ -634,58 +708,151 @@ export const OlympTradeHub: React.FC = () => {
 
       </div>
 
-      {/* Credentials Modal */}
+      {/* Credentials & Login Modal */}
       {isCredsOpen && (
-        <div className="fixed inset-0 bg-black/75 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-[#111827] border border-slate-700 rounded-2xl max-w-md w-full p-5 space-y-4 shadow-2xl">
-            <div className="flex items-center justify-between pb-2 border-b border-slate-800">
-              <h3 className="text-sm font-bold text-white flex items-center gap-2">
-                <Key className="w-4 h-4 text-cyan-400" />
-                Connect Olymp Trade Account
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
+          <div className="bg-[#111827] border border-slate-700 rounded-2xl max-w-lg w-full p-6 space-y-4 shadow-2xl animate-scaleUp">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+              <h3 className="text-base font-bold text-white flex items-center gap-2">
+                <div className="p-1.5 bg-cyan-600/20 text-cyan-400 rounded-lg">
+                  <Key className="w-5 h-5" />
+                </div>
+                Connect Your Olymp Trade Account
               </h3>
-              <button onClick={() => setIsCredsOpen(false)} className="text-slate-400 hover:text-white">✕</button>
+              <button 
+                onClick={() => setIsCredsOpen(false)} 
+                className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800 transition-all"
+              >
+                ✕
+              </button>
             </div>
 
-            <p className="text-xs text-slate-400">
-              Paste your Olymp Trade session token / API key to link your live account. By default, <strong>Olymp Trade Demo ($10,000)</strong> is 100% active and ready.
+            <p className="text-xs text-slate-300 leading-relaxed">
+              Link your actual <strong>Olymp Trade Demo & Real Accounts</strong> to trade directly with your platform funds.
             </p>
 
-            <div className="space-y-2">
-              <div>
-                <label className="text-xs text-slate-300 font-semibold block mb-1">User ID / Email</label>
-                <input
-                  type="text"
-                  placeholder="e.g. user@example.com"
-                  value={userId}
-                  onChange={(e) => setUserId(e.target.value)}
-                  className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white font-mono"
-                />
-              </div>
-
-              <div>
-                <label className="text-xs text-slate-300 font-semibold block mb-1">Olymp Trade Session Token</label>
-                <input
-                  type="password"
-                  placeholder="Paste session token / API key"
-                  value={sessionToken}
-                  onChange={(e) => setSessionToken(e.target.value)}
-                  className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white font-mono"
-                />
-              </div>
+            {/* Auth Mode Tabs */}
+            <div className="flex bg-slate-900 p-1 rounded-xl border border-slate-800 text-xs font-bold font-mono">
+              <button
+                type="button"
+                onClick={() => setAuthMode('token')}
+                className={`flex-1 py-2 rounded-lg transition-all ${
+                  authMode === 'token' ? 'bg-cyan-600 text-white shadow' : 'text-slate-400 hover:text-slate-200'
+                }`}
+              >
+                ⚡ Session Token (Auto-Sync)
+              </button>
+              <button
+                type="button"
+                onClick={() => setAuthMode('sync')}
+                className={`flex-1 py-2 rounded-lg transition-all ${
+                  authMode === 'sync' ? 'bg-cyan-600 text-white shadow' : 'text-slate-400 hover:text-slate-200'
+                }`}
+              >
+                📊 Account ID & Funds Sync
+              </button>
             </div>
 
-            <div className="flex justify-end gap-2 pt-2 border-t border-slate-800">
+            {loginError && (
+              <div className="p-3 bg-red-950/60 border border-red-500/40 rounded-xl text-xs text-red-300 flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 text-red-400 flex-shrink-0" />
+                <span>{loginError}</span>
+              </div>
+            )}
+
+            <div className="space-y-3 font-mono text-xs">
+              <div>
+                <label className="text-slate-300 font-semibold block mb-1">Olymp Trade Email / User ID</label>
+                <input
+                  type="text"
+                  placeholder="e.g. trader@example.com or User #981245"
+                  value={userId}
+                  onChange={(e) => setUserId(e.target.value)}
+                  className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-cyan-500 font-sans"
+                />
+              </div>
+
+              {authMode === 'token' ? (
+                <div>
+                  <label className="text-slate-300 font-semibold block mb-1">
+                    Olymp Trade Session Token / Authorization Header
+                  </label>
+                  <input
+                    type="password"
+                    placeholder="Paste Bearer token or cookie from browser"
+                    value={sessionToken}
+                    onChange={(e) => setSessionToken(e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-cyan-500"
+                  />
+                  <div className="mt-2 p-2.5 bg-slate-900/80 border border-slate-800 rounded-lg text-[11px] text-slate-400 font-sans space-y-1">
+                    <p className="font-bold text-cyan-400">💡 Quick 10-Second Token Extraction:</p>
+                    <ol className="list-decimal list-inside space-y-0.5 text-slate-400">
+                      <li>Open <strong>olymptrade.com/platform</strong> in browser.</li>
+                      <li>Press <strong>F12</strong> (Inspect) → <strong>Network</strong> tab.</li>
+                      <li>Click any request (e.g. <code>profile</code> or <code>graphql</code>).</li>
+                      <li>Copy the <strong>Authorization</strong> header or <code>token</code> cookie.</li>
+                    </ol>
+                  </div>
+                </div>
+              ) : null}
+
+              {/* Balance Verification Inputs */}
+              <div className="grid grid-cols-2 gap-3 pt-1">
+                <div>
+                  <label className="text-slate-300 font-semibold block mb-1">
+                    Demo Balance ($)
+                  </label>
+                  <input
+                    type="number"
+                    value={inputDemoBal}
+                    onChange={(e) => setInputDemoBal(Number(e.target.value))}
+                    placeholder="10000"
+                    className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-emerald-500 font-mono"
+                  />
+                  <span className="text-[10px] text-slate-500 font-sans">Synced with your Olymp Demo wallet</span>
+                </div>
+                <div>
+                  <label className="text-slate-300 font-semibold block mb-1">
+                    Real Balance ($)
+                  </label>
+                  <input
+                    type="number"
+                    value={inputRealBal}
+                    onChange={(e) => setInputRealBal(Number(e.target.value))}
+                    placeholder="0.00"
+                    className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-amber-500 font-mono"
+                  />
+                  <span className="text-[10px] text-slate-500 font-sans">Synced with your Olymp Real wallet</span>
+                </div>
+              </div>
+
+            </div>
+
+            <div className="flex justify-end gap-2.5 pt-3 border-t border-slate-800">
               <button
+                type="button"
                 onClick={() => setIsCredsOpen(false)}
-                className="px-3 py-1.5 text-xs text-slate-400 hover:text-white"
+                className="px-4 py-2 text-xs text-slate-400 hover:text-white rounded-xl hover:bg-slate-800 transition-all font-semibold"
               >
                 Cancel
               </button>
               <button
-                onClick={handleConnectToken}
-                className="px-4 py-1.5 bg-cyan-600 hover:bg-cyan-500 text-white rounded-lg text-xs font-bold shadow transition-all"
+                type="button"
+                onClick={handleConnectAccount}
+                disabled={isSyncing}
+                className="px-5 py-2 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white rounded-xl text-xs font-bold shadow-lg shadow-cyan-600/20 transition-all flex items-center gap-2 disabled:opacity-50"
               >
-                Save & Connect
+                {isSyncing ? (
+                  <>
+                    <RefreshCw className="w-4 h-4 animate-spin" />
+                    <span>Connecting...</span>
+                  </>
+                ) : (
+                  <>
+                    <ShieldCheck className="w-4 h-4" />
+                    <span>Connect & Sync Funds</span>
+                  </>
+                )}
               </button>
             </div>
           </div>
