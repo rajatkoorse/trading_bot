@@ -125,6 +125,8 @@ class BotStatus(BaseModel):
     circuit_breaker_tripped: bool
     kill_switch_active: bool
     discord_alerts_enabled: bool
+    market_is_open: bool = False
+    market_session_text: str = "🔴 NSE/BSE Market Closed"
 
 class BacktestRequest(BaseModel):
     symbols: List[str] = ["^NSEI", "RELIANCE.NS", "HDFCBANK.NS"]

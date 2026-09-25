@@ -13,14 +13,15 @@ def test_indian_market_charges():
 def test_position_sizing():
     # Account 100,000, Risk 1.5% = ₹1,500
     # Entry 1000, SL 985 -> sl_diff = 15 -> raw_qty = 100
-    # With max_open_positions=3, max capital slot is 100,000/3 = 33,333 -> qty = 33
+    # Max capital slot is 100,000 / settings.risk.max_open_positions
+    expected_slot_qty = int((100000.0 / settings.risk.max_open_positions) / 1000.0)
     qty = RiskManager.calculate_position_size(
         account_equity=100000.0,
         entry_price=1000.0,
         stop_loss=985.0,
         risk_per_trade_pct=1.5
     )
-    assert qty == 33
+    assert qty == expected_slot_qty
 
 def test_risk_evaluation_kill_switch():
     settings.risk.enable_kill_switch = True

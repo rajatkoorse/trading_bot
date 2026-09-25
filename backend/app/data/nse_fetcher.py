@@ -41,6 +41,51 @@ HTTP_HEADERS = {
     "Connection": "keep-alive"
 }
 
+def is_indian_market_open() -> bool:
+    """
+    Checks if Indian stock market (NSE / BSE) is currently in active live trading session.
+    Trading Hours: Monday to Friday, 09:15 AM to 03:30 PM IST (UTC+5:30).
+    """
+    now_utc = datetime.utcnow()
+    now_ist = now_utc + timedelta(hours=5, minutes=30)
+    
+    # Weekends (Saturday=5, Sunday=6)
+    if now_ist.weekday() >= 5:
+        return False
+        
+    market_open = now_ist.replace(hour=9, minute=15, second=0, microsecond=0)
+    market_close = now_ist.replace(hour=15, minute=30, second=0, microsecond=0)
+    
+    return market_open <= now_ist <= market_close
+
+def get_market_session_info() -> Dict[str, Any]:
+    now_utc = datetime.utcnow()
+    now_ist = now_utc + timedelta(hours=5, minutes=30)
+    is_open = is_indian_market_open()
+    
+    time_str = now_ist.strftime("%I:%M:%S %p IST")
+    weekday_str = now_ist.strftime("%A, %d %b %Y")
+    
+    if is_open:
+        status_text = "🟢 LIVE NSE/BSE MARKET OPEN"
+        message = "Active trading session. Real-time sub-second tick engine executing."
+    else:
+        status_text = "🔴 NSE/BSE MARKET CLOSED"
+        if now_ist.weekday() >= 5:
+            message = "Weekend Exchange Holiday. Market reopens Monday at 09:15 AM IST."
+        elif now_ist.hour >= 15 and (now_ist.hour > 15 or now_ist.minute >= 30):
+            message = "Market Closed for the day at 03:30 PM IST. Reopens next trading session at 09:15 AM IST."
+        else:
+            message = "Pre-market session. Market opens at 09:15 AM IST."
+            
+    return {
+        "is_open": is_open,
+        "ist_time": time_str,
+        "date_str": weekday_str,
+        "status_text": status_text,
+        "message": message
+    }
+
 def normalize_indian_symbol(symbol: str) -> str:
     """Ensures Indian stock symbols have proper exchange suffix (.NS or .BO) or index prefix."""
     s = symbol.strip().upper()

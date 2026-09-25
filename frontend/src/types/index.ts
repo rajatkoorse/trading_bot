@@ -108,6 +108,8 @@ export interface BotStatus {
   circuit_breaker_tripped: boolean;
   kill_switch_active: boolean;
   discord_alerts_enabled: boolean;
+  market_is_open?: boolean;
+  market_session_text?: string;
 }
 
 export interface WatchlistItem {

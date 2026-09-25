@@ -62,13 +62,17 @@ export const Navbar: React.FC<NavbarProps> = ({
               <h1 className="text-base font-bold tracking-tight text-white flex items-center gap-1.5">
                 AI Real-Time Trader
               </h1>
-              <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center gap-1">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
-                NSE / BSE REALTIME
+              <span className={`text-[10px] uppercase font-bold tracking-wider px-2.5 py-0.5 rounded-full flex items-center gap-1 border ${
+                botStatus?.market_is_open
+                  ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30'
+                  : 'bg-rose-500/20 text-rose-300 border-rose-500/30'
+              }`}>
+                <span className={`w-1.5 h-1.5 rounded-full ${botStatus?.market_is_open ? 'bg-emerald-400 animate-ping' : 'bg-rose-400'}`}></span>
+                {botStatus?.market_is_open ? 'NSE/BSE LIVE OPEN' : '🔴 NSE/BSE CLOSED (3:30 PM)'}
               </span>
             </div>
             <p className="text-[11px] text-slate-400 font-mono">
-              Hybrid Quant + XGBoost ML • Minimal-Loss Engine
+              {botStatus?.market_is_open ? 'Live Sub-Second Tick Stream • Minimal-Loss Guard' : 'Day Session Settled • Offline Mode / Backtest Studio Ready'}
             </p>
           </div>
         </div>

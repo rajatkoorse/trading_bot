@@ -6,6 +6,7 @@ from typing import Dict, Any, Optional
 from app.config import settings
 from app.models.schemas import BotStatus, AISignal, SignalType, PositionStatus
 from app.data.feed_manager import feed_manager
+from app.data.nse_fetcher import is_indian_market_open, get_market_session_info
 from app.data.brokers.paper_broker import paper_broker
 from app.data.brokers.angel_one import angel_one_broker
 from app.data.brokers.zerodha_kite import zerodha_kite_broker
@@ -58,6 +59,8 @@ class BotEngine:
         if daily_loss_pct >= settings.risk.max_daily_loss_pct:
             self.circuit_breaker_tripped = True
             
+        market_session = get_market_session_info()
+            
         return BotStatus(
             is_running=self.is_running,
             mode=self.mode,
@@ -68,7 +71,9 @@ class BotEngine:
             daily_loss_pct=round(daily_loss_pct, 2),
             circuit_breaker_tripped=self.circuit_breaker_tripped,
             kill_switch_active=self.kill_switch_active,
-            discord_alerts_enabled=settings.discord.enabled
+            discord_alerts_enabled=settings.discord.enabled,
+            market_is_open=market_session["is_open"],
+            market_session_text=market_session["status_text"]
         )
 
     def start(self):
@@ -170,24 +175,38 @@ class BotEngine:
         return signal
 
     async def _main_loop(self):
-        """Continuous Real-Time Streaming & Tick Broadcaster."""
+        """Continuous Real-Time Streaming & Tick Broadcaster with Market Timing Controls."""
         logger.info("Real-time tick engine running...")
         while self.is_running:
             try:
                 self.last_scan_time = datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')
+                is_open = is_indian_market_open()
+                broker = self.get_active_broker()
+                
+                # Check End-of-Day auto square-off when market has closed (after 3:30 PM)
+                if not is_open:
+                    open_trades = broker.get_open_positions()
+                    if open_trades:
+                        logger.info(f"Market Closed at 3:30 PM: Settling {len(open_trades)} intraday positions.")
+                        for pos in open_trades:
+                            closed = broker.close_position(pos.id, reason="EOD_MARKET_CLOSE_SQUAREOFF")
+                            if closed:
+                                await ws_manager.broadcast("POSITION_CLOSED", closed.model_dump())
                 
                 ticks_payload = []
                 for symbol in list(feed_manager.watchlist):
                     if not self.is_running:
                         break
-                    await self.scan_single_symbol(symbol)
+                    
+                    # Only generate new AI signals & executions during active live market hours
+                    if is_open:
+                        await self.scan_single_symbol(symbol)
                     p = feed_manager.get_latest_price(symbol)
                     ticks_payload.append({"symbol": symbol, "price": p})
-                    await asyncio.sleep(0.25)
+                    await asyncio.sleep(0.08)
                     
                 await ws_manager.broadcast("REALTIME_TICKS", ticks_payload)
                 
-                broker = self.get_active_broker()
                 bal = broker.get_account_balance()
                 open_pos = [p.model_dump() for p in broker.get_open_positions()]
                 await ws_manager.broadcast("PORTFOLIO_TICK", {

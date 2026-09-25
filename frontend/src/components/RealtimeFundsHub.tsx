@@ -149,6 +149,22 @@ export const RealtimeFundsHub: React.FC<RealtimeFundsHubProps> = ({
         </div>
       </div>
 
+      {/* Market Closed Notice Banner */}
+      {!botStatus?.market_is_open && (
+        <div className="bg-rose-950/40 border border-rose-800/80 rounded-xl p-3 flex items-center justify-between text-xs">
+          <div className="flex items-center gap-2 text-rose-300">
+            <AlertCircle className="w-4 h-4 text-rose-400 shrink-0" />
+            <div>
+              <span className="font-bold block">NSE & BSE Market Closed (Session ended at 03:30 PM IST)</span>
+              <span className="text-slate-400 text-[11px]">All intraday positions settled. Automated real-time trade entries are safely paused until 09:15 AM IST tomorrow.</span>
+            </div>
+          </div>
+          <span className="text-[11px] font-mono text-rose-300 bg-rose-900/40 px-2 py-1 rounded border border-rose-800 shrink-0">
+            Reopens 9:15 AM
+          </span>
+        </div>
+      )}
+
       {/* 2. Paper Capital Editor Drawer (Conditional) */}
       {isEditingCapital && !isLive && (
         <div className="bg-[#0b111e] border border-blue-500/30 rounded-xl p-4 space-y-3 animate-fadeIn">
