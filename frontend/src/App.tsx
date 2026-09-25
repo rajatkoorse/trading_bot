@@ -196,6 +196,7 @@ export const App: React.FC = () => {
         selectedSymbol={selectedSymbol}
         onSelectSymbol={setSelectedSymbol}
         ticks={realtimeTicks}
+        onWatchlistUpdated={refreshAllData}
       />
 
       {/* Main Workspace Container */}

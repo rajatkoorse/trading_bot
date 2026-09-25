@@ -65,7 +65,31 @@ def get_indian_stock_name(symbol: str) -> str:
         "SBIN.NS": "State Bank of India",
         "BHARTIARTL.NS": "Bharti Airtel",
         "ITC.NS": "ITC Ltd",
-        "LT.NS": "Larsen & Toubro"
+        "LT.NS": "Larsen & Toubro",
+        "TATASTEEL.NS": "Tata Steel",
+        "BAJFINANCE.NS": "Bajaj Finance",
+        "BAJAJFINSV.NS": "Bajaj Finserv",
+        "AXISBANK.NS": "Axis Bank",
+        "KOTAKBANK.NS": "Kotak Mahindra Bank",
+        "MARUTI.NS": "Maruti Suzuki",
+        "SUNPHARMA.NS": "Sun Pharma",
+        "TITAN.NS": "Titan Company",
+        "HINDUNILVR.NS": "Hindustan Unilever",
+        "ASIANPAINT.NS": "Asian Paints",
+        "ADANIENT.NS": "Adani Enterprises",
+        "ADANIPORTS.NS": "Adani Ports",
+        "NTPC.NS": "NTPC Ltd",
+        "POWERGRID.NS": "Power Grid",
+        "COALINDIA.NS": "Coal India",
+        "ONGC.NS": "ONGC",
+        "JSWSTEEL.NS": "JSW Steel",
+        "WIPRO.NS": "Wipro",
+        "HCLTECH.NS": "HCL Tech",
+        "M&M.NS": "Mahindra & Mahindra",
+        "ZOMATO.NS": "Zomato Ltd",
+        "BEL.NS": "Bharat Electronics",
+        "HAL.NS": "Hindustan Aeronautics",
+        "TRENT.NS": "Trent Ltd"
     }
     norm = normalize_indian_symbol(symbol)
     return names.get(norm, norm.replace(".NS", ""))

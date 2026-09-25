@@ -7,9 +7,9 @@ class RiskSettings(BaseModel):
     account_equity: float = Field(default=100000.0, description="Virtual or Live starting balance in INR (₹)")
     risk_per_trade_pct: float = Field(default=1.0, description="Strict capital risk per trade (default 1.0% for minimal loss)")
     max_daily_loss_pct: float = Field(default=2.0, description="Max total portfolio loss in a day before bot hard freezes (2.0%)")
-    max_open_positions: int = Field(default=3, description="Max concurrent active positions (prevents overexposure)")
+    max_open_positions: int = Field(default=8, description="Max concurrent active positions")
     default_rrr: float = Field(default=2.0, description="Target Risk-to-Reward Ratio (e.g. 1:2)")
-    min_confidence_pct: float = Field(default=75.0, description="Minimum AI Confidence % (75%+ required for high-probability entries)")
+    min_confidence_pct: float = Field(default=70.0, description="Minimum AI Confidence % (70%+ for strong signals)")
     use_trailing_stop: bool = Field(default=True, description="Enable dynamic ATR-based trailing stop-loss")
     trailing_atr_multiplier: float = Field(default=1.5, description="ATR multiplier for trailing stop")
     auto_breakeven_at_1r: bool = Field(default=True, description="Move Stop Loss to Break-Even once 1.0R profit is reached")
@@ -45,20 +45,44 @@ class Settings(BaseSettings):
     # Storage
     db_path: str = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "trading_system.db")
     
-    # Watchlist (Indian Markets)
+    # Comprehensive Indian Market Watchlist (Indices, Nifty 50 Heavyweights & High Beta F&O)
     default_watchlist: List[str] = [
-        "^NSEI",       # NIFTY 50 Index
-        "^NSEBANK",    # BANK NIFTY Index
-        "RELIANCE.NS", # Reliance Industries
-        "HDFCBANK.NS", # HDFC Bank
-        "TCS.NS",      # Tata Consultancy Services
-        "INFY.NS",     # Infosys
-        "ICICIBANK.NS",# ICICI Bank
-        "TATAMOTORS.NS",# Tata Motors
-        "SBIN.NS",     # State Bank of India
-        "BHARTIARTL.NS",# Bharti Airtel
-        "ITC.NS",      # ITC Ltd
-        "LT.NS"        # Larsen & Toubro
+        "^NSEI",          # NIFTY 50 Index
+        "^NSEBANK",       # BANK NIFTY Index
+        "RELIANCE.NS",    # Reliance Industries
+        "HDFCBANK.NS",    # HDFC Bank
+        "TCS.NS",         # Tata Consultancy Services
+        "INFY.NS",        # Infosys
+        "ICICIBANK.NS",   # ICICI Bank
+        "TATAMOTORS.NS",  # Tata Motors
+        "SBIN.NS",        # State Bank of India
+        "BHARTIARTL.NS",  # Bharti Airtel
+        "ITC.NS",         # ITC Ltd
+        "LT.NS",          # Larsen & Toubro
+        "TATASTEEL.NS",   # Tata Steel
+        "BAJFINANCE.NS",  # Bajaj Finance
+        "BAJAJFINSV.NS",  # Bajaj Finserv
+        "AXISBANK.NS",    # Axis Bank
+        "KOTAKBANK.NS",   # Kotak Mahindra Bank
+        "MARUTI.NS",      # Maruti Suzuki
+        "SUNPHARMA.NS",   # Sun Pharma
+        "TITAN.NS",       # Titan Company
+        "HINDUNILVR.NS",  # Hindustan Unilever
+        "ASIANPAINT.NS",  # Asian Paints
+        "ADANIENT.NS",    # Adani Enterprises
+        "ADANIPORTS.NS",  # Adani Ports
+        "NTPC.NS",        # NTPC Ltd
+        "POWERGRID.NS",   # Power Grid
+        "COALINDIA.NS",   # Coal India
+        "ONGC.NS",        # ONGC
+        "JSWSTEEL.NS",    # JSW Steel
+        "WIPRO.NS",       # Wipro
+        "HCLTECH.NS",     # HCL Tech
+        "M&M.NS",         # Mahindra & Mahindra
+        "ZOMATO.NS",      # Zomato Ltd
+        "BEL.NS",         # Bharat Electronics
+        "HAL.NS",         # Hindustan Aeronautics
+        "TRENT.NS"        # Trent Ltd
     ]
     
     # Timeframes: 1m, 5m, 15m, 1h, 1d
