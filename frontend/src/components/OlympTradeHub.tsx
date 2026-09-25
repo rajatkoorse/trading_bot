@@ -18,12 +18,21 @@ import {
   Key,
   Layers,
   Zap,
-  DollarSign
+  DollarSign,
+  ChevronDown,
+  Check
 } from 'lucide-react';
 import { createChart, IChartApi, ISeriesApi, CandlestickData } from 'lightweight-charts';
-import { OlympTradeAsset, OlympTradePosition, OlympTradeAccountStatus } from '../types';
+import { OlympTradeAsset, OlympTradePosition, OlympTradeAccountStatus, OlympSubAccount } from '../types';
 import { api } from '../services/api';
 import { soundFx } from '../services/audio';
+
+const INITIAL_ACCOUNTS: OlympSubAccount[] = [
+  { id: 'demo', name: 'Demo Account', group: 'demo', currency: 'DEMO', symbol: 'Ð', flag: '🟡', balance: 10236.29 },
+  { id: 'real_usd', name: 'MAIN Account', group: 'real', currency: 'USD', symbol: '$', flag: '🇺🇸', balance: 0.00 },
+  { id: 'real_inr', name: 'Main IND Acc', group: 'real', currency: 'INR', symbol: '₹', flag: '🇮🇳', balance: 0.00 },
+  { id: 'real_usdt', name: 'USDT Account', group: 'real', currency: 'USDT', symbol: '₮', flag: '🟢', balance: 0.00 }
+];
 
 export const OlympTradeHub: React.FC = () => {
   const [selectedAsset, setSelectedAsset] = useState<string>('EUR/USD');
@@ -32,6 +41,10 @@ export const OlympTradeHub: React.FC = () => {
   const [activePositions, setActivePositions] = useState<OlympTradePosition[]>([]);
   const [historyPositions, setHistoryPositions] = useState<OlympTradePosition[]>([]);
   
+  const [accountsList, setAccountsList] = useState<OlympSubAccount[]>(INITIAL_ACCOUNTS);
+  const [activeAccountId, setActiveAccountId] = useState<string>('demo');
+  const [isAccountDropdownOpen, setIsAccountDropdownOpen] = useState<boolean>(false);
+
   const [tradeAmount, setTradeAmount] = useState<number>(50);
   const [duration, setDuration] = useState<number>(1); // minutes
   const [timeframe, setTimeframe] = useState<string>('1m');
@@ -40,11 +53,15 @@ export const OlympTradeHub: React.FC = () => {
   
   // Credentials modal & Login State
   const [isCredsOpen, setIsCredsOpen] = useState<boolean>(false);
-  const [authMode, setAuthMode] = useState<'token' | 'sync'>('token');
+  const [authMode, setAuthMode] = useState<'sync' | 'token'>('sync');
   const [sessionToken, setSessionToken] = useState<string>('');
   const [userId, setUserId] = useState<string>('');
-  const [inputDemoBal, setInputDemoBal] = useState<number>(10000);
-  const [inputRealBal, setInputRealBal] = useState<number>(0);
+  
+  // 4 Sub-accounts individual input balances for sync
+  const [inputDemoBal, setInputDemoBal] = useState<number>(10236.29);
+  const [inputUsdBal, setInputUsdBal] = useState<number>(0);
+  const [inputInrBal, setInputInrBal] = useState<number>(0);
+  const [inputUsdtBal, setInputUsdtBal] = useState<number>(0);
   const [loginError, setLoginError] = useState<string>('');
 
   const chartContainerRef = useRef<HTMLDivElement | null>(null);
@@ -61,8 +78,15 @@ export const OlympTradeHub: React.FC = () => {
       ]);
 
       if (assetsRes.assets?.length > 0) setAssets(assetsRes.assets);
-      if (assetsRes.account) setAccount(assetsRes.account);
-      else if (accRes) setAccount(accRes);
+      if (assetsRes.account) {
+        setAccount(assetsRes.account);
+        if (assetsRes.account.accounts?.length > 0) setAccountsList(assetsRes.account.accounts);
+        if (assetsRes.account.active_account_id) setActiveAccountId(assetsRes.account.active_account_id);
+      } else if (accRes) {
+        setAccount(accRes);
+        if (accRes.accounts?.length > 0) setAccountsList(accRes.accounts);
+        if (accRes.active_account_id) setActiveAccountId(accRes.active_account_id);
+      }
 
       if (posRes.active) setActivePositions(posRes.active);
       if (posRes.history) setHistoryPositions(posRes.history);
@@ -163,13 +187,15 @@ export const OlympTradeHub: React.FC = () => {
     };
   }, [selectedAsset, timeframe]);
 
-  // Account Switching (DEMO vs REAL)
-  const handleSwitchAccount = async (mode: 'demo' | 'real') => {
+  // Sub-Account Switching (Demo, USD, INR, USDT)
+  const handleSelectAccount = async (accId: string) => {
     try {
-      await api.switchOlympTradeAccount(mode);
+      setActiveAccountId(accId);
+      setIsAccountDropdownOpen(false);
+      await api.switchOlympTradeAccount(accId);
       refreshOlympData();
     } catch (e) {
-      console.error('Failed to switch account:', e);
+      console.error('Failed to switch sub-account:', e);
     }
   };
 
@@ -204,8 +230,8 @@ export const OlympTradeHub: React.FC = () => {
 
   // Reset Demo Account
   const handleResetDemo = async () => {
-    if (window.confirm('Reset Olymp Trade Demo wallet back to $10,000?')) {
-      await api.resetOlympTradeDemo(10000);
+    if (window.confirm('Reset Olymp Trade Demo wallet back to Ð10,236.29?')) {
+      await api.resetOlympTradeDemo(10236.29);
       refreshOlympData();
     }
   };
@@ -217,8 +243,12 @@ export const OlympTradeHub: React.FC = () => {
       await api.connectOlympTrade({ 
         session_token: sessionToken, 
         user_id: userId,
-        demo_balance: Number(inputDemoBal),
-        real_balance: Number(inputRealBal)
+        accounts: [
+          { id: 'demo', balance: Number(inputDemoBal) },
+          { id: 'real_usd', balance: Number(inputUsdBal) },
+          { id: 'real_inr', balance: Number(inputInrBal) },
+          { id: 'real_usdt', balance: Number(inputUsdtBal) }
+        ]
       });
       setIsCredsOpen(false);
       refreshOlympData();
@@ -249,8 +279,10 @@ export const OlympTradeHub: React.FC = () => {
   };
 
   const isConnected = account?.is_connected ?? false;
-  const isDemo = (account?.active_account ?? 'demo') === 'demo';
-  const balance = isDemo ? (account?.demo_balance ?? 0) : (account?.real_balance ?? 0);
+  const activeAccount = accountsList.find((a) => a.id === activeAccountId) || accountsList[0];
+  const isDemo = activeAccount.group === 'demo';
+  const currencySymbol = activeAccount.symbol || '$';
+  const balance = activeAccount.balance;
   const potentialProfit = tradeAmount * (currentAssetInfo.payout / 100);
 
   return (
@@ -287,38 +319,87 @@ export const OlympTradeHub: React.FC = () => {
           </div>
         </div>
 
-        {/* Right: Account Mode Toggle & Login Controller */}
-        <div className="flex items-center gap-2.5">
+        {/* Right: Sleek Multi-Account Selector (4 Sub-Accounts) & Action Buttons */}
+        <div className="flex items-center gap-2.5 relative">
           {isConnected ? (
             <>
-              <div className="flex bg-slate-900 p-1 rounded-xl border border-slate-800 text-xs font-bold font-mono">
+              {/* Account Selector Dropdown Button */}
+              <div className="relative">
                 <button
-                  onClick={() => handleSwitchAccount('demo')}
-                  className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg transition-all ${
-                    isDemo
-                      ? 'bg-emerald-600 text-white shadow-md'
-                      : 'text-slate-400 hover:text-slate-200'
-                  }`}
+                  type="button"
+                  onClick={() => setIsAccountDropdownOpen(!isAccountDropdownOpen)}
+                  className="flex items-center gap-3 px-4 py-2 bg-slate-900 hover:bg-slate-800/90 border border-slate-700 hover:border-slate-600 rounded-xl text-xs font-bold font-mono text-white transition-all shadow-md active:scale-98"
                 >
-                  <span>🧪 DEMO ACCOUNT (${account?.demo_balance?.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) ?? '0.00'})</span>
+                  <span className="text-base">{activeAccount.flag || (isDemo ? '🟡' : '⚡')}</span>
+                  <div className="text-left">
+                    <div className="flex items-center gap-1.5 text-slate-300 text-[10px] uppercase font-sans">
+                      <span>{activeAccount.name}</span>
+                      <span className={`px-1 py-0.2 rounded text-[9px] font-extrabold ${
+                        isDemo ? 'bg-emerald-500/20 text-emerald-400' : 'bg-amber-500/20 text-amber-400'
+                      }`}>
+                        {activeAccount.currency}
+                      </span>
+                    </div>
+                    <div className="text-sm font-black text-white font-mono">
+                      {currencySymbol} {balance.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </div>
+                  </div>
+                  <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform duration-200 ${isAccountDropdownOpen ? 'rotate-180' : ''}`} />
                 </button>
-                <button
-                  onClick={() => handleSwitchAccount('real')}
-                  className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg transition-all ${
-                    !isDemo
-                      ? 'bg-amber-600 text-white shadow-md animate-pulse'
-                      : 'text-slate-400 hover:text-slate-200'
-                  }`}
-                >
-                  <span>⚡ REAL LIVE ACCOUNT (${account?.real_balance?.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) ?? '0.00'})</span>
-                </button>
+
+                {/* Accounts Drawer Dropdown */}
+                {isAccountDropdownOpen && (
+                  <div className="absolute right-0 mt-2 w-72 bg-[#111827] border border-slate-700 rounded-2xl shadow-2xl p-2 z-50 space-y-1 animate-fadeIn">
+                    <div className="px-3 py-2 border-b border-slate-800 flex items-center justify-between text-xs font-bold text-slate-400 font-sans">
+                      <span>Olymp Trade Accounts (4)</span>
+                      <span className="text-[10px] text-cyan-400">Select Active</span>
+                    </div>
+
+                    {accountsList.map((acc) => {
+                      const isSelected = acc.id === activeAccount.id;
+                      const isAccDemo = acc.group === 'demo';
+                      return (
+                        <button
+                          key={acc.id}
+                          type="button"
+                          onClick={() => handleSelectAccount(acc.id)}
+                          className={`w-full flex items-center justify-between p-2.5 rounded-xl transition-all text-left ${
+                            isSelected 
+                              ? 'bg-cyan-600/20 border border-cyan-500/50 text-white' 
+                              : 'hover:bg-slate-800/80 text-slate-300 border border-transparent'
+                          }`}
+                        >
+                          <div className="flex items-center gap-2.5">
+                            <span className="text-lg">{acc.flag || (isAccDemo ? '🟡' : '⚡')}</span>
+                            <div>
+                              <div className="text-xs font-bold text-white flex items-center gap-1.5 font-sans">
+                                <span>{acc.name}</span>
+                                <span className={`text-[9px] px-1 py-0.2 rounded font-mono font-bold ${
+                                  isAccDemo ? 'bg-emerald-950 text-emerald-300' : 'bg-amber-950 text-amber-300'
+                                }`}>
+                                  {acc.currency}
+                                </span>
+                              </div>
+                              <div className="text-xs font-mono font-bold text-slate-300">
+                                {acc.symbol} {acc.balance.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                              </div>
+                            </div>
+                          </div>
+                          {isSelected && (
+                            <Check className="w-4 h-4 text-cyan-400 font-bold" />
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
 
               {isDemo && (
                 <button
                   onClick={handleResetDemo}
-                  title="Reset Demo Wallet to $10,000"
-                  className="p-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl border border-slate-700 transition-all"
+                  title="Reset Demo Wallet to Ð10,236.29"
+                  className="p-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl border border-slate-700 transition-all"
                 >
                   <RotateCcw className="w-4 h-4" />
                 </button>
@@ -327,7 +408,7 @@ export const OlympTradeHub: React.FC = () => {
               <button
                 onClick={handleDisconnectAccount}
                 title="Disconnect Olymp Trade account"
-                className="flex items-center gap-1.5 px-3 py-1.5 bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/30 rounded-xl text-xs font-semibold transition-all"
+                className="flex items-center gap-1.5 px-3 py-2 bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/30 rounded-xl text-xs font-semibold transition-all"
               >
                 <span>Disconnect</span>
               </button>
@@ -353,14 +434,14 @@ export const OlympTradeHub: React.FC = () => {
           <div className="flex items-center justify-between text-slate-400 text-xs font-medium mb-1">
             <span className="flex items-center gap-1.5">
               <Wallet className="w-4 h-4 text-cyan-400" />
-              {isDemo ? 'Olymp Demo Balance' : 'Olymp Real Balance'}
+              {activeAccount.name} Balance
             </span>
             <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${isDemo ? 'bg-emerald-500/10 text-emerald-400' : 'bg-amber-500/10 text-amber-400'}`}>
-              {isDemo ? 'DEMO' : 'LIVE'}
+              {activeAccount.currency}
             </span>
           </div>
           <div className="text-2xl font-black text-white font-mono">
-            ${balance.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            {currencySymbol} {balance.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
           </div>
         </div>
 
@@ -373,7 +454,7 @@ export const OlympTradeHub: React.FC = () => {
             </span>
           </div>
           <div className="text-2xl font-black text-emerald-400 font-mono">
-            ${(account?.available_cash ?? balance).toLocaleString('en-US', { minimumFractionDigits: 2 })}
+            {currencySymbol} {(account?.available_cash ?? balance).toLocaleString('en-US', { minimumFractionDigits: 2 })}
           </div>
         </div>
 
@@ -387,7 +468,7 @@ export const OlympTradeHub: React.FC = () => {
             <span className="text-[10px] text-slate-400">{activePositions.length} Running</span>
           </div>
           <div className="text-2xl font-black text-purple-300 font-mono">
-            ${(account?.invested_margin ?? 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
+            {currencySymbol} {(account?.invested_margin ?? 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
           </div>
         </div>
 
@@ -403,7 +484,7 @@ export const OlympTradeHub: React.FC = () => {
           <div className={`text-2xl font-black font-mono ${
             (account?.realized_pnl_today ?? 0) >= 0 ? 'text-emerald-400' : 'text-red-400'
           }`}>
-            {(account?.realized_pnl_today ?? 0) >= 0 ? '+' : ''}${account?.realized_pnl_today?.toFixed(2) ?? '0.00'}
+            {(account?.realized_pnl_today ?? 0) >= 0 ? '+' : ''}{currencySymbol} {account?.realized_pnl_today?.toFixed(2) ?? '0.00'}
           </div>
         </div>
 
@@ -449,7 +530,7 @@ export const OlympTradeHub: React.FC = () => {
             <div>
               <h4 className="text-sm font-bold text-white">Olymp Trade Account Connection Required</h4>
               <p className="text-xs text-slate-300">
-                Log in to link your personal Olymp Trade account so paper trading and live orders utilize your actual platform balances.
+                Connect your account to trade using your personal 4 sub-accounts (Demo, MAIN USD, Main IND INR, USDT).
               </p>
             </div>
           </div>
@@ -499,7 +580,7 @@ export const OlympTradeHub: React.FC = () => {
           <div className="pt-2">
             <h4 className="text-xs font-bold text-slate-300 mb-2 flex items-center gap-1.5">
               <Clock className="w-4 h-4 text-cyan-400" />
-              Active Olymp Trade Positions ({activePositions.length})
+              Active Positions ({activePositions.length}) • {activeAccount.name}
             </h4>
 
             {activePositions.length === 0 ? (
@@ -524,6 +605,7 @@ export const OlympTradeHub: React.FC = () => {
                     {activePositions.map((pos) => {
                       const isCall = pos.direction === 'CALL';
                       const isWinning = isCall ? pos.current_price > pos.entry_price : pos.current_price < pos.entry_price;
+                      const sym = pos.currency_symbol || currencySymbol;
                       return (
                         <tr key={pos.id} className="hover:bg-slate-800/40">
                           <td className="p-2 font-bold text-white">{pos.asset}</td>
@@ -534,12 +616,12 @@ export const OlympTradeHub: React.FC = () => {
                               {pos.direction} ({isCall ? 'HIGHER' : 'LOWER'})
                             </span>
                           </td>
-                          <td className="p-2 text-white font-bold">${pos.amount}</td>
+                          <td className="p-2 text-white font-bold">{sym} {pos.amount}</td>
                           <td className="p-2 text-slate-300">{pos.entry_price}</td>
                           <td className={`p-2 font-bold ${isWinning ? 'text-emerald-400' : 'text-red-400'}`}>
                             {pos.current_price}
                           </td>
-                          <td className="p-2 text-emerald-400 font-bold">+{pos.payout_pct}% (${(pos.amount * (pos.payout_pct / 100)).toFixed(1)})</td>
+                          <td className="p-2 text-emerald-400 font-bold">+{pos.payout_pct}% ({sym} {(pos.amount * (pos.payout_pct / 100)).toFixed(1)})</td>
                           <td className="p-2 text-amber-400 font-bold">{pos.time_left_seconds}s left</td>
                         </tr>
                       );
@@ -560,31 +642,37 @@ export const OlympTradeHub: React.FC = () => {
                 <Zap className="w-4 h-4 text-amber-400" />
                 1-Click Execution Pad
               </span>
-              <span className={`text-[10px] font-mono px-2 py-0.5 rounded font-bold ${
+              <span className={`text-[10px] font-mono px-2 py-0.5 rounded font-bold flex items-center gap-1 ${
                 isDemo ? 'bg-emerald-500/20 text-emerald-400' : 'bg-amber-500/20 text-amber-400'
               }`}>
-                {isDemo ? 'DEMO MODE ($10k)' : 'REAL LIVE TRADING'}
+                <span>{activeAccount.flag || '⚡'}</span>
+                <span>{activeAccount.name}</span>
               </span>
             </div>
 
             {/* Trade Amount Selector */}
             <div>
-              <label className="text-xs font-semibold text-slate-300 block mb-1.5">Investment Amount ($)</label>
+              <label className="text-xs font-semibold text-slate-300 block mb-1.5">
+                Investment Amount ({currencySymbol})
+              </label>
               <div className="flex items-center gap-2">
                 <button
-                  onClick={() => setTradeAmount(Math.max(5, tradeAmount - 10))}
+                  onClick={() => setTradeAmount(Math.max(1, tradeAmount - (activeAccount.currency === 'INR' ? 100 : 10)))}
                   className="p-2 bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-300 rounded-xl"
                 >
                   <Minus className="w-4 h-4" />
                 </button>
-                <input
-                  type="number"
-                  value={tradeAmount}
-                  onChange={(e) => setTradeAmount(Math.max(1, Number(e.target.value)))}
-                  className="flex-1 bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-center text-lg font-mono font-black text-white focus:outline-none focus:border-cyan-500"
-                />
+                <div className="flex-1 relative">
+                  <span className="absolute left-3 top-2.5 text-slate-400 font-bold font-mono">{currencySymbol}</span>
+                  <input
+                    type="number"
+                    value={tradeAmount}
+                    onChange={(e) => setTradeAmount(Math.max(1, Number(e.target.value)))}
+                    className="w-full bg-slate-950 border border-slate-700 rounded-xl pl-8 pr-3 py-2 text-center text-lg font-mono font-black text-white focus:outline-none focus:border-cyan-500"
+                  />
+                </div>
                 <button
-                  onClick={() => setTradeAmount(tradeAmount + 10)}
+                  onClick={() => setTradeAmount(tradeAmount + (activeAccount.currency === 'INR' ? 100 : 10))}
                   className="p-2 bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-300 rounded-xl"
                 >
                   <Plus className="w-4 h-4" />
@@ -593,7 +681,7 @@ export const OlympTradeHub: React.FC = () => {
 
               {/* Quick Amount Presets */}
               <div className="grid grid-cols-4 gap-1.5 mt-2">
-                {[10, 25, 50, 100].map((amt) => (
+                {(activeAccount.currency === 'INR' ? [100, 500, 1000, 5000] : [10, 25, 50, 100]).map((amt) => (
                   <button
                     key={amt}
                     onClick={() => setTradeAmount(amt)}
@@ -603,7 +691,7 @@ export const OlympTradeHub: React.FC = () => {
                         : 'bg-slate-900 border-slate-800 text-slate-400 hover:text-white'
                     }`}
                   >
-                    ${amt}
+                    {currencySymbol}{amt}
                   </button>
                 ))}
               </div>
@@ -632,7 +720,7 @@ export const OlympTradeHub: React.FC = () => {
             {/* Potential Payout Return Banner */}
             <div className="bg-slate-950/80 border border-slate-800 rounded-xl p-3 flex items-center justify-between text-xs font-mono">
               <span className="text-slate-400">Potential Return ({currentAssetInfo.payout}%):</span>
-              <span className="text-emerald-400 font-bold text-sm">+${potentialProfit.toFixed(2)}</span>
+              <span className="text-emerald-400 font-bold text-sm">+{currencySymbol}{potentialProfit.toFixed(2)}</span>
             </div>
 
             {/* CALL (UP) and PUT (DOWN) Action Buttons */}
@@ -647,7 +735,7 @@ export const OlympTradeHub: React.FC = () => {
                   <span className="text-sm">CALL (HIGHER / UP)</span>
                 </div>
                 <span className="text-xs font-mono font-extrabold bg-emerald-950/80 px-2.5 py-1 rounded-lg border border-emerald-500/40">
-                  +${potentialProfit.toFixed(1)}
+                  +{currencySymbol}{potentialProfit.toFixed(1)}
                 </span>
               </button>
 
@@ -661,7 +749,7 @@ export const OlympTradeHub: React.FC = () => {
                   <span className="text-sm">PUT (LOWER / DOWN)</span>
                 </div>
                 <span className="text-xs font-mono font-extrabold bg-red-950/80 px-2.5 py-1 rounded-lg border border-red-500/40">
-                  +${potentialProfit.toFixed(1)}
+                  +{currencySymbol}{potentialProfit.toFixed(1)}
                 </span>
               </button>
             </div>
@@ -681,15 +769,16 @@ export const OlympTradeHub: React.FC = () => {
               <div className="space-y-1.5 max-h-44 overflow-y-auto font-mono text-xs">
                 {historyPositions.slice(0, 10).map((h) => {
                   const isWon = h.status === 'WON';
+                  const sym = h.currency_symbol || currencySymbol;
                   return (
                     <div key={h.id} className="flex items-center justify-between p-2 rounded-lg bg-slate-900/60 border border-slate-800/80">
                       <div>
                         <span className="font-bold text-white block">{h.asset}</span>
-                        <span className="text-[10px] text-slate-400">{h.direction} • {h.duration_minutes}m</span>
+                        <span className="text-[10px] text-slate-400">{h.direction} • {h.duration_minutes}m • {h.account_name || 'Olymp Trade'}</span>
                       </div>
                       <div className="text-right">
                         <span className={`font-bold block ${isWon ? 'text-emerald-400' : 'text-red-400'}`}>
-                          {isWon ? `+$${h.pnl}` : `-$${h.amount}`}
+                          {isWon ? `+${sym}${h.pnl}` : `-${sym}${h.amount}`}
                         </span>
                         <span className={`text-[9px] uppercase px-1.5 py-0.2 rounded font-bold ${
                           isWon ? 'bg-emerald-950 text-emerald-300' : 'bg-red-950 text-red-300'
@@ -708,7 +797,7 @@ export const OlympTradeHub: React.FC = () => {
 
       </div>
 
-      {/* Credentials & Login Modal */}
+      {/* Credentials & Multi-Account Login Modal */}
       {isCredsOpen && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
           <div className="bg-[#111827] border border-slate-700 rounded-2xl max-w-lg w-full p-6 space-y-4 shadow-2xl animate-scaleUp">
@@ -720,8 +809,8 @@ export const OlympTradeHub: React.FC = () => {
                   <Key className="w-5 h-5" />
                 </div>
                 <div>
-                  <h3 className="text-base font-bold text-white">Connect Olymp Trade Account</h3>
-                  <p className="text-[11px] text-slate-400">Trade 24/7 with your personal Demo & Real funds</p>
+                  <h3 className="text-base font-bold text-white">Connect Olymp Trade Accounts</h3>
+                  <p className="text-[11px] text-slate-400">Sync all 4 sub-accounts (Demo, MAIN USD, Main IND INR, USDT)</p>
                 </div>
               </div>
               <button 
@@ -732,7 +821,7 @@ export const OlympTradeHub: React.FC = () => {
               </button>
             </div>
 
-            {/* Auth Mode Tabs: 1-Click Fast Connect (Default) vs 1-Click Token Grabber vs Manual */}
+            {/* Auth Mode Tabs */}
             <div className="flex bg-slate-900 p-1 rounded-xl border border-slate-800 text-xs font-bold font-mono">
               <button
                 type="button"
@@ -763,14 +852,9 @@ export const OlympTradeHub: React.FC = () => {
               </div>
             )}
 
-            {/* Tab 1: 1-Click Fast Connect (Simplest & Recommended) */}
+            {/* Tab 1: 1-Click Fast Connect for All 4 Sub-Accounts */}
             {authMode === 'sync' && (
-              <div className="space-y-3.5 text-xs">
-                <div className="p-3 bg-cyan-950/30 border border-cyan-500/30 rounded-xl text-slate-300 text-[11px] leading-relaxed">
-                  <span className="font-bold text-cyan-400 block mb-0.5">✨ Instant Zero-Setup Login:</span>
-                  Enter your Olymp Trade registered email / username and your current wallet balance. The bot will immediately bind to your account funds.
-                </div>
-
+              <div className="space-y-3 text-xs">
                 <div>
                   <label className="text-slate-300 font-semibold block mb-1">Olymp Trade Email / User ID</label>
                   <input
@@ -778,36 +862,67 @@ export const OlympTradeHub: React.FC = () => {
                     placeholder="e.g. trader@gmail.com or User #981245"
                     value={userId}
                     onChange={(e) => setUserId(e.target.value)}
-                    className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2.5 text-white focus:outline-none focus:border-cyan-500 font-sans text-xs"
+                    className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-cyan-500 font-sans text-xs"
                   />
                 </div>
 
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="text-slate-300 font-semibold block mb-1">
-                      Olymp Demo Balance ($)
-                    </label>
-                    <input
-                      type="number"
-                      value={inputDemoBal}
-                      onChange={(e) => setInputDemoBal(Number(e.target.value))}
-                      placeholder="10000"
-                      className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-emerald-500 font-mono font-bold"
-                    />
-                    <span className="text-[10px] text-slate-500">Your Olymp Trade demo wallet</span>
-                  </div>
-                  <div>
-                    <label className="text-slate-300 font-semibold block mb-1">
-                      Olymp Real Balance ($)
-                    </label>
-                    <input
-                      type="number"
-                      value={inputRealBal}
-                      onChange={(e) => setInputRealBal(Number(e.target.value))}
-                      placeholder="0.00"
-                      className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-amber-500 font-mono font-bold"
-                    />
-                    <span className="text-[10px] text-slate-500">Your Olymp Trade real wallet</span>
+                <div className="p-3 bg-slate-900/90 border border-slate-800 rounded-xl space-y-2.5">
+                  <span className="font-bold text-slate-300 block text-[11px]">
+                    📊 Sync Your 4 Olymp Trade Sub-Account Balances:
+                  </span>
+                  
+                  <div className="grid grid-cols-2 gap-2.5">
+                    <div>
+                      <label className="text-slate-400 text-[11px] font-semibold block mb-0.5">
+                        🟡 Demo Account (Ð)
+                      </label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        value={inputDemoBal}
+                        onChange={(e) => setInputDemoBal(Number(e.target.value))}
+                        className="w-full bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1.5 text-white font-mono font-bold focus:border-emerald-500"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="text-slate-400 text-[11px] font-semibold block mb-0.5">
+                        🇺🇸 MAIN Account (USD $)
+                      </label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        value={inputUsdBal}
+                        onChange={(e) => setInputUsdBal(Number(e.target.value))}
+                        className="w-full bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1.5 text-white font-mono font-bold focus:border-blue-500"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="text-slate-400 text-[11px] font-semibold block mb-0.5">
+                        🇮🇳 Main IND Acc (INR ₹)
+                      </label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        value={inputInrBal}
+                        onChange={(e) => setInputInrBal(Number(e.target.value))}
+                        className="w-full bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1.5 text-white font-mono font-bold focus:border-amber-500"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="text-slate-400 text-[11px] font-semibold block mb-0.5">
+                        🟢 USDT Account (USDT ₮)
+                      </label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        value={inputUsdtBal}
+                        onChange={(e) => setInputUsdtBal(Number(e.target.value))}
+                        className="w-full bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1.5 text-white font-mono font-bold focus:border-emerald-500"
+                      />
+                    </div>
                   </div>
                 </div>
               </div>
@@ -857,7 +972,7 @@ export const OlympTradeHub: React.FC = () => {
                 {/* 1-Click Automated Token Grabber Script */}
                 <div className="p-3 bg-slate-900/90 border border-slate-800 rounded-xl space-y-2">
                   <div className="flex items-center justify-between">
-                    <span className="font-bold text-amber-400 text-[11px]">⚡ 1-Click Token Copy Script (No searching):</span>
+                    <span className="font-bold text-amber-400 text-[11px]">⚡ 1-Click Token Copy Script:</span>
                     <button
                       type="button"
                       onClick={() => {
@@ -873,7 +988,7 @@ export const OlympTradeHub: React.FC = () => {
                   <ol className="list-decimal list-inside space-y-0.5 text-[11px] text-slate-400">
                     <li>Click <strong>Copy 1-Click Script</strong> above.</li>
                     <li>Open <strong>olymptrade.com/platform</strong> $\rightarrow$ Press <strong>F12</strong> $\rightarrow$ <strong>Console</strong>.</li>
-                    <li>Paste & Press <strong>Enter</strong> (your token is automatically copied).</li>
+                    <li>Paste & Press <strong>Enter</strong> (token is automatically copied).</li>
                     <li>Return here and click <strong>Paste from Clipboard</strong>.</li>
                   </ol>
                 </div>

@@ -171,6 +171,9 @@ export const api = {
     user_id?: string; 
     demo_balance?: number; 
     real_balance?: number; 
+    inr_balance?: number;
+    usdt_balance?: number;
+    accounts?: any[];
   }): Promise<any> => {
     const res = await axios.post(`${API_BASE}/olymptrade/connect`, credentials);
     return res.data;
@@ -181,8 +184,8 @@ export const api = {
     return res.data;
   },
 
-  switchOlympTradeAccount: async (account_type: 'demo' | 'real'): Promise<any> => {
-    const res = await axios.post(`${API_BASE}/olymptrade/switch-account`, { account_type });
+  switchOlympTradeAccount: async (account_id: string): Promise<any> => {
+    const res = await axios.post(`${API_BASE}/olymptrade/switch-account`, { account_id });
     return res.data;
   },
 

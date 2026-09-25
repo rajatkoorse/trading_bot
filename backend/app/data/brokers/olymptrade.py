@@ -8,6 +8,45 @@ from app.data.global_fetcher import GLOBAL_ASSETS, get_global_latest_price
 
 logger = logging.getLogger("olymptrade_broker")
 
+DEFAULT_OLYMP_ACCOUNTS = [
+    {
+        "id": "demo",
+        "name": "Demo Account",
+        "group": "demo",
+        "currency": "DEMO",
+        "symbol": "Ð",
+        "flag": "🟡",
+        "balance": 10236.29
+    },
+    {
+        "id": "real_usd",
+        "name": "MAIN Account",
+        "group": "real",
+        "currency": "USD",
+        "symbol": "$",
+        "flag": "🇺🇸",
+        "balance": 0.00
+    },
+    {
+        "id": "real_inr",
+        "name": "Main IND Acc",
+        "group": "real",
+        "currency": "INR",
+        "symbol": "₹",
+        "flag": "🇮🇳",
+        "balance": 0.00
+    },
+    {
+        "id": "real_usdt",
+        "name": "USDT Account",
+        "group": "real",
+        "currency": "USDT",
+        "symbol": "₮",
+        "flag": "🟢",
+        "balance": 0.00
+    }
+]
+
 class OlympTradePosition:
     def __init__(
         self,
@@ -19,7 +58,9 @@ class OlympTradePosition:
         entry_time: float, # unix timestamp
         duration_minutes: int,
         payout_pct: float,
-        account_type: str # 'demo' or 'real'
+        account_id: str,
+        account_name: str,
+        currency_symbol: str = "Ð"
     ):
         self.id = id
         self.asset = asset
@@ -30,7 +71,9 @@ class OlympTradePosition:
         self.duration_minutes = duration_minutes
         self.expiry_time = entry_time + (duration_minutes * 60)
         self.payout_pct = payout_pct
-        self.account_type = account_type
+        self.account_id = account_id
+        self.account_name = account_name
+        self.currency_symbol = currency_symbol
         
         self.status = "ACTIVE" # 'ACTIVE', 'WON', 'LOST', 'TIE'
         self.current_price = entry_price
@@ -53,7 +96,9 @@ class OlympTradePosition:
             "duration_minutes": self.duration_minutes,
             "time_left_seconds": time_left,
             "payout_pct": self.payout_pct,
-            "account_type": self.account_type,
+            "account_id": self.account_id,
+            "account_name": self.account_name,
+            "currency_symbol": self.currency_symbol,
             "status": self.status,
             "pnl": self.pnl,
             "pnl_pct": self.pnl_pct
@@ -61,35 +106,54 @@ class OlympTradePosition:
 
 class OlympTradeBroker:
     """
-    24/7 Live Broker Connector for Olymp Trade.
-    Requires user login / session token to trade on Demo or Real account.
+    24/7 Live Multi-Account Broker Connector for Olymp Trade.
+    Supports all 4 Olymp Trade Sub-Accounts:
+    1. Demo Account (Ð)
+    2. MAIN Account (USD $)
+    3. Main IND Acc (INR ₹)
+    4. USDT Account (USDT ₮)
     """
     def __init__(self):
         self.session_token: str = ""
         self.user_id: str = ""
         self.is_connected: bool = False # Requires user login
-        self.active_account: str = "demo" # 'demo' or 'real'
+        self.active_account_id: str = "demo"
         
-        self.demo_balance: float = 0.00
-        self.real_balance: float = 0.00
+        # Sub-accounts map
+        self.accounts: Dict[str, Dict[str, Any]] = {acc["id"]: dict(acc) for acc in DEFAULT_OLYMP_ACCOUNTS}
         
         self.open_positions: List[OlympTradePosition] = []
         self.closed_positions: List[OlympTradePosition] = []
 
+    def get_active_account(self) -> Dict[str, Any]:
+        return self.accounts.get(self.active_account_id, self.accounts["demo"])
+
     def connect(self, credentials: Dict[str, Any]) -> Dict[str, Any]:
         """
-        Authenticates with Olymp Trade using session token / credentials
-        and initializes with the user's actual Demo & Real account balances.
+        Authenticates with Olymp Trade and updates all 4 sub-accounts.
         """
         token = str(credentials.get("session_token", "")).strip()
         user_id = str(credentials.get("user_id", "")).strip()
         
-        # User specified or synced balances
-        input_demo = credentials.get("demo_balance")
-        input_real = credentials.get("real_balance")
-
-        demo_bal = float(input_demo) if input_demo is not None and float(input_demo) > 0 else 10000.00
-        real_bal = float(input_real) if input_real is not None and float(input_real) >= 0 else 0.00
+        # Check if individual sub-account balances are provided
+        if "accounts" in credentials and isinstance(credentials["accounts"], list):
+            for acc in credentials["accounts"]:
+                acc_id = acc.get("id")
+                if acc_id and acc_id in self.accounts:
+                    if "balance" in acc:
+                        self.accounts[acc_id]["balance"] = float(acc["balance"])
+                    if "name" in acc:
+                        self.accounts[acc_id]["name"] = acc["name"]
+        else:
+            # Check legacy balance fields
+            if "demo_balance" in credentials and credentials["demo_balance"] is not None:
+                self.accounts["demo"]["balance"] = float(credentials["demo_balance"])
+            if "real_balance" in credentials and credentials["real_balance"] is not None:
+                self.accounts["real_usd"]["balance"] = float(credentials["real_balance"])
+            if "inr_balance" in credentials and credentials["inr_balance"] is not None:
+                self.accounts["real_inr"]["balance"] = float(credentials["inr_balance"])
+            if "usdt_balance" in credentials and credentials["usdt_balance"] is not None:
+                self.accounts["real_usdt"]["balance"] = float(credentials["usdt_balance"])
 
         # Try to verify token with Olymp Trade API if token provided
         if token:
@@ -109,49 +173,49 @@ class OlympTradeBroker:
                         user_id = str(data["user_id"])
                     if "accounts" in data and isinstance(data["accounts"], list):
                         for acc in data["accounts"]:
-                            if acc.get("group") == "demo":
-                                demo_bal = float(acc.get("balance", demo_bal))
-                            elif acc.get("group") == "real":
-                                real_bal = float(acc.get("balance", real_bal))
+                            grp = acc.get("group", "")
+                            curr = acc.get("currency", "").upper()
+                            bal = float(acc.get("balance", 0.0))
+                            if grp == "demo":
+                                self.accounts["demo"]["balance"] = bal
+                            elif curr == "USD":
+                                self.accounts["real_usd"]["balance"] = bal
+                            elif curr == "INR":
+                                self.accounts["real_inr"]["balance"] = bal
+                            elif curr == "USDT":
+                                self.accounts["real_usdt"]["balance"] = bal
             except Exception as e:
                 logger.info(f"Olymp Trade direct API handshake info: {e}. Using authenticated session profile.")
 
             self.session_token = token
             self.user_id = user_id or f"OLYMP_{token[:8].upper()}"
-            self.demo_balance = demo_bal
-            self.real_balance = real_bal
             self.is_connected = True
             
-            logger.info(f"Olymp Trade account connected ({self.user_id}): Demo=${self.demo_balance:.2f}, Real=${self.real_balance:.2f}")
             return {
                 "success": True,
-                "message": f"Successfully connected to Olymp Trade account ({self.user_id})!",
+                "message": f"Successfully connected to Olymp Trade ({self.user_id})!",
                 "user_id": self.user_id,
-                "active_account": self.active_account,
-                "demo_balance": self.demo_balance,
-                "real_balance": self.real_balance,
+                "active_account_id": self.active_account_id,
+                "accounts": list(self.accounts.values()),
                 "is_connected": True
             }
         
         # If user connects with user ID / email and initial balance sync
         if user_id:
             self.user_id = user_id
-            self.demo_balance = demo_bal
-            self.real_balance = real_bal
             self.is_connected = True
             return {
                 "success": True,
-                "message": f"Connected to Olymp Trade account ({self.user_id}) with synced balances.",
+                "message": f"Connected to Olymp Trade account ({self.user_id}) with all 4 accounts synced.",
                 "user_id": self.user_id,
-                "active_account": self.active_account,
-                "demo_balance": self.demo_balance,
-                "real_balance": self.real_balance,
+                "active_account_id": self.active_account_id,
+                "accounts": list(self.accounts.values()),
                 "is_connected": True
             }
 
         return {
             "success": False,
-            "message": "Please provide your Olymp Trade session token or account credentials to connect."
+            "message": "Please provide your Olymp Trade session token or account email to connect."
         }
 
     def disconnect(self) -> Dict[str, Any]:
@@ -159,8 +223,6 @@ class OlympTradeBroker:
         self.session_token = ""
         self.user_id = ""
         self.is_connected = False
-        self.demo_balance = 0.00
-        self.real_balance = 0.00
         self.open_positions = []
         return {
             "success": True,
@@ -168,23 +230,40 @@ class OlympTradeBroker:
             "is_connected": False
         }
 
-    def switch_account(self, account_type: str) -> Dict[str, Any]:
-        """Toggles between Olymp Trade DEMO and REAL account."""
-        if account_type.lower() not in ["demo", "real"]:
-            return {"success": False, "message": "Account must be 'demo' or 'real'"}
+    def switch_account(self, account_id: str) -> Dict[str, Any]:
+        """Switches between any of the 4 Olymp Trade sub-accounts."""
+        acc_id = account_id.lower().strip()
+        if acc_id == "real":
+            acc_id = "real_usd"
             
-        self.active_account = account_type.lower()
+        if acc_id not in self.accounts:
+            # Check if matching by currency or partial name
+            matched = False
+            for k, v in self.accounts.items():
+                if v["currency"].lower() == acc_id or v["name"].lower() == acc_id:
+                    acc_id = k
+                    matched = True
+                    break
+            if not matched:
+                return {"success": False, "message": f"Unknown account ID: {account_id}"}
+            
+        self.active_account_id = acc_id
+        active = self.accounts[acc_id]
+        logger.info(f"Switched active Olymp Trade account to: {active['name']} ({active['symbol']}{active['balance']})")
         return {
             "success": True,
-            "active_account": self.active_account,
-            "message": f"Switched to Olymp Trade {self.active_account.upper()} Account!"
+            "active_account_id": self.active_account_id,
+            "active_account": active,
+            "message": f"Switched to Olymp Trade {active['name']} ({active['currency']})!"
         }
 
     def get_account_balance(self) -> Dict[str, Any]:
-        invested = sum(p.amount for p in self.open_positions if p.account_type == self.active_account)
-        active_bal = self.demo_balance if self.active_account == "demo" else self.real_balance
+        active = self.get_active_account()
+        active_bal = active["balance"]
         
-        closed = [p for p in self.closed_positions if p.account_type == self.active_account]
+        invested = sum(p.amount for p in self.open_positions if p.account_id == self.active_account_id)
+        
+        closed = [p for p in self.closed_positions if p.account_id == self.active_account_id]
         realized_today = sum(p.pnl for p in closed)
         winning = len([p for p in closed if p.pnl > 0])
         total_closed = len(closed)
@@ -193,9 +272,13 @@ class OlympTradeBroker:
         return {
             "is_connected": self.is_connected,
             "user_id": self.user_id if self.is_connected else "Not Connected",
-            "active_account": self.active_account,
-            "demo_balance": round(self.demo_balance, 2),
-            "real_balance": round(self.real_balance, 2),
+            "active_account_id": self.active_account_id,
+            "active_account": active,
+            "accounts": list(self.accounts.values()),
+            "currency": active["currency"],
+            "currency_symbol": active["symbol"],
+            "demo_balance": round(self.accounts["demo"]["balance"], 2),
+            "real_balance": round(self.accounts["real_usd"]["balance"], 2),
             "current_balance": round(active_bal, 2),
             "invested_margin": round(invested, 2),
             "available_cash": round(max(0.0, active_bal - invested), 2),
@@ -213,24 +296,22 @@ class OlympTradeBroker:
         duration_minutes: int = 1
     ) -> Optional[Dict[str, Any]]:
         """
-        Executes a real-time 24/7 trade on Olymp Trade (Demo or Real).
+        Executes a real-time 24/7 trade on Olymp Trade (using active sub-account).
         """
         if not self.is_connected:
             raise ValueError("Olymp Trade account is not connected. Please login first.")
 
-        active_bal = self.demo_balance if self.active_account == "demo" else self.real_balance
+        active = self.get_active_account()
+        active_bal = active["balance"]
         if amount > active_bal:
-            raise ValueError(f"Insufficient funds in Olymp Trade {self.active_account.upper()} account. Available: ${active_bal:.2f}, Required: ${amount:.2f}")
+            raise ValueError(f"Insufficient funds in {active['name']}. Available: {active['symbol']}{active_bal:.2f}, Required: {active['symbol']}{amount:.2f}")
 
         curr_price = get_global_latest_price(asset)
         asset_info = GLOBAL_ASSETS.get(asset.upper(), {})
         payout = float(asset_info.get("payout", 82))
 
-        # Deduct balance upfront
-        if self.active_account == "demo":
-            self.demo_balance -= amount
-        else:
-            self.real_balance -= amount
+        # Deduct balance upfront from active sub-account
+        active["balance"] -= amount
 
         pos = OlympTradePosition(
             id=f"olymp_{uuid.uuid4().hex[:8]}",
@@ -241,11 +322,13 @@ class OlympTradeBroker:
             entry_time=time.time(),
             duration_minutes=duration_minutes,
             payout_pct=payout,
-            account_type=self.active_account
+            account_id=self.active_account_id,
+            account_name=active["name"],
+            currency_symbol=active["symbol"]
         )
 
         self.open_positions.append(pos)
-        logger.info(f"[OLYMP TRADE] {pos.account_type.upper()} Order: {pos.direction} {pos.asset} @ {pos.entry_price} (${pos.amount}, {pos.duration_minutes}m)")
+        logger.info(f"[OLYMP TRADE] {pos.account_name} Order: {pos.direction} {pos.asset} @ {pos.entry_price} ({active['symbol']}{pos.amount}, {pos.duration_minutes}m)")
         return pos.to_dict()
 
     def update_ticks(self, asset_ticks: Dict[str, float]) -> List[Dict[str, Any]]:
@@ -288,11 +371,13 @@ class OlympTradeBroker:
                     pos.pnl_pct = -100.0
                     return_amount = 0.0
 
-                # Return capital + profit
-                if pos.account_type == "demo":
-                    self.demo_balance += return_amount
+                # Return capital + profit to the sub-account that placed the trade
+                if pos.account_id in self.accounts:
+                    self.accounts[pos.account_id]["balance"] += return_amount
+                elif "demo" in pos.account_id:
+                    self.accounts["demo"]["balance"] += return_amount
                 else:
-                    self.real_balance += return_amount
+                    self.accounts["real_usd"]["balance"] += return_amount
 
                 self.closed_positions.insert(0, pos)
                 events.append({"event": "OLYMP_TRADE_EXPIRED", "position": pos.to_dict()})
@@ -308,9 +393,9 @@ class OlympTradeBroker:
             "history": [p.to_dict() for p in self.closed_positions[:40]]
         }
 
-    def reset_demo_balance(self, amount: float = 10000.0):
-        self.demo_balance = amount
-        self.open_positions = [p for p in self.open_positions if p.account_type != "demo"]
-        return {"success": True, "demo_balance": self.demo_balance}
+    def reset_demo_balance(self, amount: float = 10236.29):
+        self.accounts["demo"]["balance"] = amount
+        self.open_positions = [p for p in self.open_positions if p.account_id != "demo"]
+        return {"success": True, "demo_balance": self.accounts["demo"]["balance"]}
 
 olymp_trade_broker = OlympTradeBroker()

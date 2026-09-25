@@ -183,6 +183,16 @@ export interface OlympTradeAsset {
   price: number;
 }
 
+export interface OlympSubAccount {
+  id: string;
+  name: string;
+  group: 'demo' | 'real';
+  currency: string;
+  symbol: string;
+  flag?: string;
+  balance: number;
+}
+
 export interface OlympTradePosition {
   id: string;
   asset: string;
@@ -196,14 +206,21 @@ export interface OlympTradePosition {
   duration_minutes: number;
   time_left_seconds: number;
   payout_pct: number;
-  account_type: 'demo' | 'real';
+  account_id?: string;
+  account_name?: string;
+  currency_symbol?: string;
+  account_type?: 'demo' | 'real';
   status: 'ACTIVE' | 'WON' | 'LOST' | 'TIE';
   pnl: number;
   pnl_pct: number;
 }
 
 export interface OlympTradeAccountStatus {
-  active_account: 'demo' | 'real';
+  active_account_id?: string;
+  active_account?: OlympSubAccount | 'demo' | 'real';
+  accounts?: OlympSubAccount[];
+  currency?: string;
+  currency_symbol?: string;
   demo_balance: number;
   real_balance: number;
   current_balance: number;

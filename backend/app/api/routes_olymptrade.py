@@ -25,8 +25,9 @@ def disconnect_olymptrade():
     return res
 
 @router.post("/switch-account")
-def switch_olymptrade_account(account_type: str = Body(..., embed=True)):
-    res = olymp_trade_broker.switch_account(account_type)
+def switch_olymptrade_account(payload: Dict[str, Any] = Body(...)):
+    acc_id = payload.get("account_id") or payload.get("account_type") or "demo"
+    res = olymp_trade_broker.switch_account(str(acc_id))
     return res
 
 @router.get("/assets")
