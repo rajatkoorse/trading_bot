@@ -3,6 +3,7 @@ import { Navbar } from './components/Navbar';
 import { LiveTickerMarquee } from './components/LiveTickerMarquee';
 import { PortfolioSummary } from './components/PortfolioSummary';
 import { RealtimeFundsHub } from './components/RealtimeFundsHub';
+import { OlympTradeHub } from './components/OlympTradeHub';
 import { TradingChart } from './components/TradingChart';
 import { SignalFeed } from './components/SignalFeed';
 import { ActivePositions } from './components/ActivePositions';
@@ -37,7 +38,7 @@ export const App: React.FC = () => {
   const [isDiscordOpen, setIsDiscordOpen] = useState<boolean>(false);
   const [isRiskOpen, setIsRiskOpen] = useState<boolean>(false);
   const [isBrokerOpen, setIsBrokerOpen] = useState<boolean>(false);
-  const [activeView, setActiveView] = useState<'TERMINAL' | 'BACKTEST'>('TERMINAL');
+  const [activeView, setActiveView] = useState<'INDIAN_NSE' | 'OLYMPTRADE' | 'BACKTEST'>('INDIAN_NSE');
 
   // Load initial data
   const refreshAllData = async () => {
@@ -202,18 +203,29 @@ export const App: React.FC = () => {
       {/* Main Workspace Container */}
       <main className="flex-1 max-w-[1700px] w-full mx-auto p-4 space-y-4">
         
-        {/* Navigation Tabs (Live Terminal vs Quant Backtesting) */}
-        <div className="flex items-center justify-between">
-          <div className="flex bg-[#111827] p-1 rounded-xl border border-slate-800 text-xs font-bold">
+        {/* Navigation Tabs (Indian Terminal vs 24/7 Olymp Trade vs Quant Backtesting) */}
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex bg-[#111827] p-1 rounded-xl border border-slate-800 text-xs font-bold font-mono">
             <button
-              onClick={() => setActiveView('TERMINAL')}
+              onClick={() => setActiveView('INDIAN_NSE')}
               className={`px-4 py-1.5 rounded-lg transition-all ${
-                activeView === 'TERMINAL'
+                activeView === 'INDIAN_NSE'
                   ? 'bg-blue-600 text-white shadow-md'
                   : 'text-slate-400 hover:text-slate-200'
               }`}
             >
-              Real-Time Trading Terminal & AI Engine
+              🇮🇳 Indian Equities (NSE / BSE)
+            </button>
+            <button
+              onClick={() => setActiveView('OLYMPTRADE')}
+              className={`flex items-center gap-1.5 px-4 py-1.5 rounded-lg transition-all ${
+                activeView === 'OLYMPTRADE'
+                  ? 'bg-gradient-to-r from-cyan-600 to-blue-600 text-white shadow-md'
+                  : 'text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+              <span>🌐 24/7 Olymp Trade Global Engine</span>
             </button>
             <button
               onClick={() => setActiveView('BACKTEST')}
@@ -233,16 +245,16 @@ export const App: React.FC = () => {
           </div>
         </div>
 
-        {/* 1. Real-Time Funds, Margin & Capital Management Hub */}
-        <RealtimeFundsHub
-          portfolio={portfolio}
-          botStatus={botStatus}
-          onRefresh={refreshAllData}
-          onOpenBrokerModal={() => setIsBrokerOpen(true)}
-        />
-
-        {activeView === 'TERMINAL' ? (
+        {activeView === 'INDIAN_NSE' ? (
           <>
+            {/* 1. Real-Time Funds, Margin & Capital Management Hub */}
+            <RealtimeFundsHub
+              portfolio={portfolio}
+              botStatus={botStatus}
+              onRefresh={refreshAllData}
+              onOpenBrokerModal={() => setIsBrokerOpen(true)}
+            />
+
             {/* 2. Main Workstation 2-Column Grid */}
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
               
@@ -299,6 +311,9 @@ export const App: React.FC = () => {
 
             </div>
           </>
+        ) : activeView === 'OLYMPTRADE' ? (
+          /* Olymp Trade 24/7 Global Workspace */
+          <OlympTradeHub />
         ) : (
           /* Backtest Studio View */
           <BacktestStudio />

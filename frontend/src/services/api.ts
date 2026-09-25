@@ -158,5 +158,46 @@ export const api = {
   runBacktest: async (params: any): Promise<BacktestResult> => {
     const res = await axios.post(`${API_BASE}/backtest/run`, params);
     return res.data;
+  },
+
+  // Olymp Trade 24/7 Global Engine
+  getOlympTradeStatus: async (): Promise<any> => {
+    const res = await axios.get(`${API_BASE}/olymptrade/status`);
+    return res.data;
+  },
+
+  connectOlympTrade: async (credentials: { session_token?: string; user_id?: string }): Promise<any> => {
+    const res = await axios.post(`${API_BASE}/olymptrade/connect`, credentials);
+    return res.data;
+  },
+
+  switchOlympTradeAccount: async (account_type: 'demo' | 'real'): Promise<any> => {
+    const res = await axios.post(`${API_BASE}/olymptrade/switch-account`, { account_type });
+    return res.data;
+  },
+
+  getGlobalAssets: async (): Promise<any> => {
+    const res = await axios.get(`${API_BASE}/olymptrade/assets`);
+    return res.data;
+  },
+
+  getGlobalCandles: async (asset: string, timeframe: string = '1m', limit: number = 100): Promise<any> => {
+    const res = await axios.get(`${API_BASE}/olymptrade/candles/${encodeURIComponent(asset)}?timeframe=${timeframe}&limit=${limit}`);
+    return res.data;
+  },
+
+  placeOlympTradeOrder: async (params: { asset: string; direction: 'CALL' | 'PUT'; amount: number; duration_minutes: number }): Promise<any> => {
+    const res = await axios.post(`${API_BASE}/olymptrade/order`, params);
+    return res.data;
+  },
+
+  getOlympTradePositions: async (): Promise<any> => {
+    const res = await axios.get(`${API_BASE}/olymptrade/positions`);
+    return res.data;
+  },
+
+  resetOlympTradeDemo: async (amount: number = 10000): Promise<any> => {
+    const res = await axios.post(`${API_BASE}/olymptrade/reset-demo?amount=${amount}`);
+    return res.data;
   }
 };

@@ -12,6 +12,7 @@ from app.api.routes_signals import router as signals_router
 from app.api.routes_trades import router as trades_router
 from app.api.routes_bot import router as bot_router
 from app.api.routes_backtest import router as backtest_router
+from app.api.routes_olymptrade import router as olymp_router
 
 logging.basicConfig(
     level=logging.INFO,
@@ -34,9 +35,9 @@ async def lifespan(app: FastAPI):
     bot_engine.stop()
 
 app = FastAPI(
-    title="AI Signals Trading Platform (NSE / BSE)",
-    description="Institutional-grade personal AI trading engine & bot for Indian Equities & Indices",
-    version="1.0.0",
+    title="AI Signals Trading Platform (NSE / BSE & Olymp Trade 24/7)",
+    description="Institutional-grade personal AI trading engine & bot for Indian Equities, BSE/NSE & Olymp Trade 24/7 Global Markets",
+    version="1.1.0",
     lifespan=lifespan
 )
 
@@ -55,6 +56,7 @@ app.include_router(signals_router)
 app.include_router(trades_router)
 app.include_router(bot_router)
 app.include_router(backtest_router)
+app.include_router(olymp_router)
 
 @app.get("/health")
 def health_check():
