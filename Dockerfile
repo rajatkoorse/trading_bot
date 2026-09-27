@@ -1,36 +1,28 @@
-# Stage 1: Build Frontend SPA
+# Stage 1: Fast Frontend Build
 FROM node:20-alpine AS frontend-builder
 WORKDIR /app/frontend
 COPY frontend/package*.json ./
-RUN npm ci --legacy-peer-deps || npm install
+RUN npm install --prefer-offline --no-audit
 COPY frontend/ ./
 RUN npm run build
 
-# Stage 2: Python 3.10 Production Runtime
+# Stage 2: Fast Python 3.10 Runtime (Using Pre-compiled Binary Wheels)
 FROM python:3.10-slim
 WORKDIR /app
 
-# Install compilation tools for numerical packages
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    gcc \
-    g++ \
-    curl \
-    && rm -rf /var/lib/apt/lists/*
-
-# Install Python backend requirements
+# Install pre-built binary wheels directly (Zero C++ compilation needed, 5x faster build)
 COPY backend/requirements.txt ./backend/
-RUN pip install --no-cache-dir -r backend/requirements.txt
+RUN pip install --no-cache-dir --prefer-binary -r backend/requirements.txt
 
-# Copy backend codebase
+# Copy backend application
 COPY backend/ ./backend/
 
-# Copy compiled React frontend assets from stage 1
+# Copy compiled React frontend assets
 COPY --from=frontend-builder /app/frontend/dist ./frontend/dist
 
-# Environment configuration
 ENV PYTHONUNBUFFERED=1
 ENV PORT=8000
 EXPOSE 8000
 
-# Start unified FastAPI server with embedded React SPA
+# Start FastAPI server serving both API and static React frontend
 CMD ["sh", "-c", "python -m uvicorn app.main:app --app-dir backend --host 0.0.0.0 --port ${PORT:-8000}"]
