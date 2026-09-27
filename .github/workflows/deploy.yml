@@ -5,6 +5,7 @@ on:
     branches: ["master", "main"]
   workflow_dispatch:
 
+# Grants necessary permissions to configure and deploy to GitHub Pages
 permissions:
   contents: read
   pages: write
@@ -38,6 +39,8 @@ jobs:
 
       - name: Setup GitHub Pages
         uses: actions/configure-pages@v5
+        with:
+          enablement: true
 
       - name: Upload GitHub Pages Artifact
         uses: actions/upload-pages-artifact@v3
