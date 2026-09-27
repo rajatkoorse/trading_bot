@@ -171,7 +171,7 @@ export const api = {
     return res.data;
   },
 
-  updateDiscordSettings: async (settings: { webhook_url: string; enabled: boolean }): Promise<any> => {
+  updateDiscordSettings: async (settings: { webhook_url?: string; enabled?: boolean }): Promise<any> => {
     const res = await axios.post(`${getApiBase()}/bot/discord-settings`, settings);
     return res.data;
   },
