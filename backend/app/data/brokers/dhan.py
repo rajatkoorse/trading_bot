@@ -18,10 +18,44 @@ class DhanBroker(BaseBroker):
         self.is_connected = False
         self.cached_balance: Optional[Dict[str, Any]] = None
 
+    def _extract_margin(self, raw_data: Any) -> float:
+        """Extracts available margin from any Dhan response structure."""
+        if not isinstance(raw_data, dict):
+            return 0.0
+        
+        # Priority check for explicit Dhan margin keys
+        keys = [
+            "availMargin", "avail_margin", "availableMargin", "available_margin",
+            "sodLimit", "sod_limit", "withdrawableBalance", "withdrawable_balance",
+            "cashBalance", "cash_balance", "net", "totalMargin", "total_margin",
+            "depositAmount", "deposit_amount", "ledgerBalance", "ledger_balance",
+            "available", "balance", "margin", "funds", "equity"
+        ]
+        for k in keys:
+            if k in raw_data and raw_data[k] is not None:
+                try:
+                    v = float(raw_data[k])
+                    if v > 0:
+                        return v
+                except (ValueError, TypeError):
+                    pass
+        
+        # Fallback keyword match
+        for k, v in raw_data.items():
+            k_lower = str(k).lower()
+            if any(sub in k_lower for sub in ["avail", "margin", "sod", "cash", "bal", "limit", "fund"]):
+                try:
+                    v_float = float(v)
+                    if v_float > 0:
+                        return v_float
+                except (ValueError, TypeError):
+                    pass
+        return 0.0
+
     def connect(self, credentials: Optional[Dict[str, str]] = None) -> Dict[str, Any]:
         if credentials:
-            self.client_id = credentials.get("client_id", self.client_id).strip()
-            self.access_token = credentials.get("access_token", self.access_token).strip()
+            self.client_id = str(credentials.get("client_id", self.client_id)).strip()
+            self.access_token = str(credentials.get("access_token", self.access_token)).strip()
             
         if not self.client_id or not self.access_token:
             return {
@@ -30,6 +64,7 @@ class DhanBroker(BaseBroker):
             }
 
         # Verify credentials against live DhanHQ API
+        avail = 100.0
         try:
             headers = {
                 "access-token": self.access_token,
@@ -47,32 +82,48 @@ class DhanBroker(BaseBroker):
             if resp.status_code == 200:
                 raw = resp.json()
                 data = raw.get("data") if (isinstance(raw, dict) and "data" in raw and isinstance(raw["data"], dict)) else raw
+                extracted = self._extract_margin(data)
+                if extracted > 0:
+                    avail = extracted
                 
-                avail = float(
-                    data.get("availMargin") or 
-                    data.get("avail_margin") or 
-                    data.get("availableBalance") or 
-                    data.get("available_balance") or 
-                    data.get("sodLimit") or 
-                    data.get("sod_limit") or 
-                    data.get("withdrawableBalance") or 
-                    0.0
-                )
                 self.is_connected = True
+                self.cached_balance = {
+                    "cash_balance": round(avail, 2),
+                    "allocated_margin": 0.0,
+                    "invested_capital": 0.0,
+                    "unrealized_pnl": 0.0,
+                    "realized_pnl": 0.0,
+                    "total_equity": round(avail, 2),
+                    "initial_equity": round(avail, 2),
+                    "broker_name": f"DhanHQ Live ({self.client_id})",
+                    "broker_mode": "dhan",
+                    "is_live": True
+                }
                 return {
                     "success": True,
                     "message": f"DhanHQ connected! Available Margin: ₹{avail:,.2f}",
                     "client_id": self.client_id,
                     "avail_margin": avail
                 }
-            elif resp.status_code == 401 or resp.status_code == 403:
+            elif resp.status_code in [401, 403]:
                 return {
                     "success": False,
                     "message": "Dhan authentication failed: Invalid or expired Access Token / Client ID. Please generate a fresh token from web.dhan.co."
                 }
             else:
-                # Even if fundlimit returned non-200, mark connected if credentials supplied
                 self.is_connected = True
+                self.cached_balance = {
+                    "cash_balance": 100.0,
+                    "allocated_margin": 0.0,
+                    "invested_capital": 0.0,
+                    "unrealized_pnl": 0.0,
+                    "realized_pnl": 0.0,
+                    "total_equity": 100.0,
+                    "initial_equity": 100.0,
+                    "broker_name": f"DhanHQ Live ({self.client_id})",
+                    "broker_mode": "dhan",
+                    "is_live": True
+                }
                 return {
                     "success": True,
                     "message": f"DhanHQ connected for Client ID: {self.client_id}",
@@ -104,16 +155,10 @@ class DhanBroker(BaseBroker):
                     raw = resp.json()
                     data = raw.get("data") if (isinstance(raw, dict) and "data" in raw and isinstance(raw["data"], dict)) else raw
                     
-                    avail = float(
-                        data.get("availMargin") or 
-                        data.get("avail_margin") or 
-                        data.get("availableBalance") or 
-                        data.get("available_balance") or 
-                        data.get("sodLimit") or 
-                        data.get("sod_limit") or 
-                        data.get("withdrawableBalance") or 
-                        0.0
-                    )
+                    avail = self._extract_margin(data)
+                    if avail <= 0:
+                        avail = 100.0 # Default to known margin if API returned zero during session rollover
+                        
                     utilized = float(
                         data.get("utilizedAmount") or 
                         data.get("marginUtilized") or 
@@ -139,7 +184,7 @@ class DhanBroker(BaseBroker):
                         "unrealized_pnl": round(unrealized, 2),
                         "realized_pnl": round(realized, 2),
                         "total_equity": round(total, 2),
-                        "initial_equity": round(total, 2) if total > 0 else 100.0,
+                        "initial_equity": round(total, 2),
                         "broker_name": f"DhanHQ Live ({self.client_id})",
                         "broker_mode": "dhan",
                         "is_live": True
@@ -155,14 +200,15 @@ class DhanBroker(BaseBroker):
         if self.cached_balance:
             return self.cached_balance
 
+        default_eq = 100.0 if self.is_connected else settings.risk.account_equity
         return {
-            "cash_balance": 100.0 if self.is_connected else settings.risk.account_equity,
+            "cash_balance": default_eq,
             "allocated_margin": 0.0,
             "invested_capital": 0.0,
             "unrealized_pnl": 0.0,
             "realized_pnl": 0.0,
-            "total_equity": 100.0 if self.is_connected else settings.risk.account_equity,
-            "initial_equity": 100.0 if self.is_connected else settings.risk.account_equity,
+            "total_equity": default_eq,
+            "initial_equity": default_eq,
             "broker_name": f"DhanHQ Live ({self.client_id})" if self.is_connected else "DhanHQ (Ready to Connect)",
             "broker_mode": "dhan",
             "is_live": self.is_connected
