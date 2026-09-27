@@ -91,6 +91,19 @@ def init_db():
     )
     """)
 
+    # Seed permanent Discord Webhook configuration
+    cursor.execute("SELECT value FROM system_config WHERE key = 'discord_webhook_url'")
+    row = cursor.fetchone()
+    if not row:
+        cursor.execute("INSERT OR REPLACE INTO system_config (key, value) VALUES ('discord_webhook_url', ?)", (settings.discord.webhook_url,))
+        cursor.execute("INSERT OR REPLACE INTO system_config (key, value) VALUES ('discord_enabled', 'true')")
+    else:
+        settings.discord.webhook_url = row[0]
+        cursor.execute("SELECT value FROM system_config WHERE key = 'discord_enabled'")
+        en_row = cursor.fetchone()
+        if en_row:
+            settings.discord.enabled = en_row[0].lower() in ['true', '1']
+
     conn.commit()
     conn.close()
 

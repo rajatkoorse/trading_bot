@@ -11,6 +11,10 @@ services:
       - key: APP_NAME
         value: "AI Signals Trader (NSE/BSE)"
       - key: TRADING_MODE
-        value: paper
+        value: dhan
       - key: INITIAL_PAPER_CAPITAL
         value: 100000.0
+      - key: DISCORD__WEBHOOK_URL
+        value: "https://discord.com/api/webhooks/1553659683632316487/CWjCRHoFhS0aOE689SZ43VsYVx6WaaF_yvLiPFvF41fuwkvgycec1eEwnwY7L7NkIphQ"
+      - key: DISCORD__ENABLED
+        value: "true"

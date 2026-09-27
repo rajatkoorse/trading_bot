@@ -19,14 +19,17 @@ class RiskSettings(BaseModel):
     enable_kill_switch: bool = Field(default=False, description="Global emergency freeze on all trade execution")
 
 class DiscordSettings(BaseModel):
-    webhook_url: str = Field(default="", description="Discord channel webhook URL for instant signal alerts")
-    enabled: bool = Field(default=False, description="Enable/Disable Discord webhook dispatches")
+    webhook_url: str = Field(
+        default="https://discord.com/api/webhooks/1553659683632316487/CWjCRHoFhS0aOE689SZ43VsYVx6WaaF_yvLiPFvF41fuwkvgycec1eEwnwY7L7NkIphQ",
+        description="Permanent Discord channel webhook URL for instant signal alerts"
+    )
+    enabled: bool = Field(default=True, description="Enable/Disable Discord webhook dispatches")
     notify_on_signals: bool = Field(default=True, description="Post new AI trading signals")
     notify_on_trades: bool = Field(default=True, description="Post order executions, TP/SL hits")
     notify_daily_summary: bool = Field(default=True, description="Post daily PnL & performance recap")
 
 class BrokerSettings(BaseModel):
-    active_broker: str = Field(default="paper", description="'paper', 'angel_one', 'zerodha', 'dhan'")
+    active_broker: str = Field(default="dhan", description="'paper', 'angel_one', 'zerodha', 'dhan'")
     angel_api_key: str = Field(default="", description="Angel One SmartAPI Key")
     angel_client_code: str = Field(default="", description="Angel One Client ID")
     angel_password: str = Field(default="", description="Angel One MPIN/Password")

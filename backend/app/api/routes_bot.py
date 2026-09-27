@@ -107,10 +107,13 @@ def update_risk_settings(data: Dict[str, Any]):
 
 @router.post("/discord-settings")
 async def update_discord_settings(data: Dict[str, Any]):
+    from app.database import set_config_value
     if "webhook_url" in data:
         settings.discord.webhook_url = str(data["webhook_url"])
+        set_config_value("discord_webhook_url", settings.discord.webhook_url)
     if "enabled" in data:
         settings.discord.enabled = bool(data["enabled"])
+        set_config_value("discord_enabled", "true" if settings.discord.enabled else "false")
     return {"status": "success", "discord_settings": settings.discord.model_dump()}
 
 @router.post("/discord-test")
