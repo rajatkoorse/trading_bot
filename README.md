@@ -6,6 +6,27 @@ Supports **Zerodha Kite**, **DhanHQ**, **Angel One SmartAPI**, and **Virtual Pap
 
 ---
 
+## 🌐 Hosting on GitHub Pages (`*.github.io`)
+
+The repository includes an automated **GitHub Actions Workflow** (`.github/workflows/deploy.yml`) that automatically builds and deploys the frontend web app to **`https://<your-username>.github.io/<your-repo-name>/`** on every push!
+
+### How to Enable GitHub Pages:
+1. Push your repository to GitHub (see [Pushing to GitHub](#-how-to-push-to-github) below).
+2. On your GitHub repository page:
+   - Go to **Settings** $\rightarrow$ **Pages** (in the left sidebar).
+   - Under **Build and deployment** $\rightarrow$ **Source**, select **GitHub Actions**.
+3. Push to `master` (or trigger the workflow manually under the **Actions** tab).
+4. GitHub will automatically build and publish your website to **`https://<your-username>.github.io/<your-repo-name>/`**.
+
+### Connecting `github.io` to your 24/7 Cloud Backend:
+Because GitHub Pages is a static host, the web terminal can connect to your 24/7 Python Bot Engine running on Render, Railway, or a VPS:
+1. Open your `https://<your-username>.github.io/<repo>` URL on your phone or browser.
+2. Tap the **Server** button in the top navigation bar.
+3. Paste your cloud backend URL (e.g., `https://your-trader.onrender.com`).
+4. Click **Save & Connect** — your static GitHub Pages site is now directly streaming live market data and executing trades with Kite!
+
+---
+
 ## 🚀 Key Features
 
 - **Institutional AI Confluence Engine**: Multi-indicator consensus algorithm combining EMA Ribbon (9/21/50/200), SuperTrend, VWAP, RSI Momentum, MACD Histogram, and ATR Volatility Filters.
@@ -27,16 +48,15 @@ Supports **Zerodha Kite**, **DhanHQ**, **Angel One SmartAPI**, and **Virtual Pap
 
 ## 📱 How to Use on Your Phone (Without Keeping Your Laptop On)
 
-### Step 1: Deploy to Cloud (Free on Render or Railway)
+### Step 1: Deploy Backend to Cloud (Free on Render or Railway)
 
-Deploying to the cloud allows the bot to run 24 hours a day, 7 days a week, so you can close your laptop and control everything from your phone.
+Deploying the backend to the cloud allows the bot to run 24 hours a day, 7 days a week, so you can close your laptop and control everything from your phone.
 
 #### Option A: 1-Click Render Deployment
-1. Push your repository to GitHub (see [Pushing to GitHub](#-how-to-push-to-github) below).
-2. Go to [render.com](https://render.com) and create a **New Web Service**.
-3. Connect your GitHub repository.
-4. Select **Docker** environment (Render will automatically detect `Dockerfile` and `render.yaml`).
-5. Click **Deploy**. You will receive a live URL like `https://ai-trader-xxxx.onrender.com`.
+1. Go to [render.com](https://render.com) and create a **New Web Service**.
+2. Connect your GitHub repository.
+3. Select **Docker** environment (Render will automatically detect `Dockerfile` and `render.yaml`).
+4. Click **Deploy**. You will receive a live URL like `https://ai-trader-xxxx.onrender.com`.
 
 #### Option B: Railway Deployment
 1. Go to [railway.app](https://railway.app) and click **New Project** $\rightarrow$ **Deploy from GitHub repo**.
@@ -48,7 +68,7 @@ Deploying to the cloud allows the bot to run 24 hours a day, 7 days a week, so y
 
 Because phone browsers (iOS Safari, Android Chrome) hide Developer Tools (F12), the terminal includes an interactive **Phone Login Guide**:
 
-1. Open your cloud website URL on your phone browser.
+1. Open your website (either `github.io` or your cloud domain) on your phone browser.
 2. Tap the **Broker Connect** button (Key icon in the top navigation bar).
 3. Select **Zerodha Kite** $\rightarrow$ **📱 Phone Login Guide**.
 4. Tap **Copy Script** to copy the 1-tap mobile bookmarklet.
@@ -121,7 +141,7 @@ To push your clean codebase to GitHub:
 git add .
 
 # 3. Commit your changes:
-git commit -m "feat: Indian Equities NSE/BSE trading terminal with 24/7 cloud support and mobile Kite login"
+git commit -m "feat: Add GitHub Pages deployment, dynamic cloud server connector, and mobile Kite support"
 
 # 4. Push to master / main branch:
 git push origin master

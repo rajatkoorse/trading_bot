@@ -11,7 +11,7 @@ import {
   TrendingUp, 
   Key, 
   Activity,
-  Smartphone
+  Server
 } from 'lucide-react';
 import { BotStatus } from '../types';
 import { soundFx } from '../services/audio';
@@ -25,6 +25,7 @@ interface NavbarProps {
   onOpenDiscordModal: () => void;
   onOpenRiskModal: () => void;
   onOpenBrokerModal: () => void;
+  onOpenBackendModal: () => void;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
@@ -35,7 +36,8 @@ export const Navbar: React.FC<NavbarProps> = ({
   onToggleKillSwitch,
   onOpenDiscordModal,
   onOpenRiskModal,
-  onOpenBrokerModal
+  onOpenBrokerModal,
+  onOpenBackendModal
 }) => {
   const [isMuted, setIsMuted] = useState(soundFx.isMuted);
 
@@ -133,6 +135,16 @@ export const Navbar: React.FC<NavbarProps> = ({
         {/* Right: Actions & Status Badges */}
         <div className="flex items-center gap-2 flex-wrap">
           
+          {/* Cloud Server Connector */}
+          <button
+            onClick={onOpenBackendModal}
+            className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 border border-slate-700 text-xs text-slate-300 hover:text-white transition-all shadow-sm"
+            title="Configure Cloud Backend URL for GitHub Pages / Remote Hosting"
+          >
+            <Server className="w-3.5 h-3.5 text-cyan-400" />
+            <span className="hidden xl:inline text-[11px]">Server</span>
+          </button>
+
           {/* Broker Badge / Trigger */}
           {!isBacktest && (
             <button

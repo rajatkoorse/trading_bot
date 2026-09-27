@@ -12,6 +12,7 @@ import { ConfluenceRadar } from './components/ConfluenceRadar';
 import { DiscordSettingsModal } from './components/DiscordSettingsModal';
 import { RiskSettingsModal } from './components/RiskSettingsModal';
 import { BrokerConnectModal } from './components/BrokerConnectModal';
+import { BackendConfigModal } from './components/BackendConfigModal';
 
 import { 
   BotStatus, 
@@ -20,7 +21,7 @@ import {
   TradePosition, 
   WatchlistItem 
 } from './types';
-import { api } from './services/api';
+import { api, getBackendBaseUrl } from './services/api';
 import { soundFx } from './services/audio';
 
 export const App: React.FC = () => {
@@ -36,6 +37,7 @@ export const App: React.FC = () => {
   const [isDiscordOpen, setIsDiscordOpen] = useState<boolean>(false);
   const [isRiskOpen, setIsRiskOpen] = useState<boolean>(false);
   const [isBrokerOpen, setIsBrokerOpen] = useState<boolean>(false);
+  const [isBackendOpen, setIsBackendOpen] = useState<boolean>(false);
   const [activeView, setActiveView] = useState<'INDIAN_NSE' | 'BACKTEST'>('INDIAN_NSE');
 
   // Load initial data
@@ -69,8 +71,17 @@ export const App: React.FC = () => {
 
   // WebSocket Live Real-Time Updates
   useEffect(() => {
-    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const wsUrl = `${protocol}//${window.location.host}/ws`;
+    const baseBackend = getBackendBaseUrl();
+    let wsUrl = '';
+    if (baseBackend) {
+      const wsProto = baseBackend.startsWith('https') ? 'wss:' : 'ws:';
+      const cleanHost = baseBackend.replace(/^https?:\/\//, '').replace(/\/+$/, '');
+      wsUrl = `${wsProto}//${cleanHost}/ws`;
+    } else {
+      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+      wsUrl = `${protocol}//${window.location.host}/ws`;
+    }
+
     let ws: WebSocket | null = null;
 
     const connectWs = () => {
@@ -182,6 +193,7 @@ export const App: React.FC = () => {
         onOpenDiscordModal={() => setIsDiscordOpen(true)}
         onOpenRiskModal={() => setIsRiskOpen(true)}
         onOpenBrokerModal={() => setIsBrokerOpen(true)}
+        onOpenBackendModal={() => setIsBackendOpen(true)}
       />
 
       {/* Live Real-Time Ticker Marquee - Active in Indian Equities Mode */}
@@ -289,6 +301,12 @@ export const App: React.FC = () => {
         onClose={() => setIsBrokerOpen(false)}
         onUpdated={refreshAllData}
         activeBroker={botStatus?.mode || 'paper'}
+      />
+
+      <BackendConfigModal
+        isOpen={isBackendOpen}
+        onClose={() => setIsBackendOpen(false)}
+        onUpdated={refreshAllData}
       />
 
     </div>
