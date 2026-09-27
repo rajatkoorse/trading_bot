@@ -1,0 +1,16 @@
+services:
+  - type: web
+    name: ai-indian-equities-trader
+    env: docker
+    dockerfilePath: Dockerfile
+    plan: free
+    region: singapore
+    envVars:
+      - key: PORT
+        value: 8000
+      - key: APP_NAME
+        value: "AI Signals Trader (NSE/BSE)"
+      - key: TRADING_MODE
+        value: paper
+      - key: INITIAL_PAPER_CAPITAL
+        value: 100000.0

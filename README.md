@@ -1,69 +1,136 @@
-# AI Signals Trading Platform (NSE / BSE)
+# 🇮🇳 AI Indian Equities (NSE/BSE) Trading Terminal & Autonomous Bot
 
-Institutional-grade personal AI Trading Platform, Autonomous Bot, and Real-Time Interactive Dashboard specifically built for **Indian Markets (NSE / BSE)** with strict **Minimal-Loss / Capital Preservation Safeguards**.
+An institutional-grade, AI-powered trading terminal and autonomous algorithmic execution bot built specifically for **Indian Equities & Indices (NSE / BSE)**.
 
----
-
-## 🚀 Key Highlights
-
-1. **100% Real-Time Market Feed**:
-   - Fetches live sub-second tick candles directly for Indian Indices (`^NSEI`, `^NSEBANK`) and Equities (`RELIANCE.NS`, `HDFCBANK.NS`, `TCS.NS`, `INFY.NS`, `ICICIBANK.NS`, `SBIN.NS`, `TATAMOTORS.NS`, `ITC.NS`, etc.).
-   - No mock/fake prices — all technical indicators (EMA, SuperTrend, VWAP, RSI, MACD, ATR) compute on actual live exchange market prints.
-
-2. **Real-Time Funds & Capital Management Hub**:
-   - Dedicated dashboard section displaying **Total Net Equity**, **Available Free Cash Margin**, **Invested Capital in Active Trades**, and **Live Floating Unrealized & Realized P&L**.
-   - Custom Paper Capital Adjuster (`₹25k`, `₹50k`, `₹1L`, `₹2L`, `₹5L`, `₹10L` or custom amount).
-
-3. **Zero-Fee Broker Integrations**:
-   - **DhanHQ API**: 100% Free official broker API with zero monthly charges.
-   - **Angel One SmartAPI**: 100% Free official API with automated TOTP login.
-   - **Zerodha Free Direct Login**: Direct browser session `enctoken` cookie connector (zero ₹2,000/mo fee).
-   - **Real-Time Paper Simulator**: Sub-second execution with realistic 0.02% slippage and Indian statutory charges (STT, ₹20 exchange brokerage, GST).
-
-4. **Institutional Minimal-Loss Protection Rules**:
-   - **1.0% Max Risk per Trade**: Dynamic position sizing based on ATR volatility stop.
-   - **Auto Break-Even Lock at 1.0R (`🛡️`)**: Automatically shifts Stop Loss to entry price + round-trip exchange tax cover.
-   - **50% Partial Take-Profit (`💰`)**: Takes half off at Target 1 and trails the remainder.
-   - **Daily 2.0% Circuit Breaker & 2-Loss 45-min Cooldown**.
+Supports **Zerodha Kite**, **DhanHQ**, **Angel One SmartAPI**, and **Virtual Paper Trading (₹1,00,000)**.
 
 ---
 
-## 🛠️ Quick Start (Local Windows)
+## 🚀 Key Features
 
-Run the one-click startup script:
-```cmd
-start_system.bat
+- **Institutional AI Confluence Engine**: Multi-indicator consensus algorithm combining EMA Ribbon (9/21/50/200), SuperTrend, VWAP, RSI Momentum, MACD Histogram, and ATR Volatility Filters.
+- **Zero-Cost Direct Broker Connectors**:
+  - **Zerodha Kite**: Free session login via `enctoken` or official Kite Connect v3 API.
+  - **DhanHQ**: 100% free official API with 30-day tokens.
+  - **Angel One SmartAPI**: 100% free official broker API with automated TOTP authentication.
+  - **Paper Trading Engine**: Virtual ₹1,00,000 simulator with sub-second order fills and realistic slippage/fees.
+- **📱 Phone-First Mobile UI & Dedicated Mobile Kite Login**:
+  - Automatic mobile detection (`isMobileDevice`).
+  - 1-tap mobile bookmarklet tool to extract `enctoken` on mobile browsers (Safari / Chrome iOS & Android) where F12 DevTools are unavailable.
+- **☁️ 24/7 Cloud Ready (No Laptop Needed)**:
+  - Docker multi-stage build that serves both FastAPI backend and React frontend from a single port.
+  - 1-click deployment configs for **Render**, **Railway**, or any VPS.
+- **Robust Risk Engine**: Max daily drawdown limits, trailing stop loss, automated break-even locking, circuit breakers, and emergency Kill Switch.
+- **Real-Time Discord Webhook Alerts**: Live trade notifications with entry price, stop-loss, targets, and PnL.
+
+---
+
+## 📱 How to Use on Your Phone (Without Keeping Your Laptop On)
+
+### Step 1: Deploy to Cloud (Free on Render or Railway)
+
+Deploying to the cloud allows the bot to run 24 hours a day, 7 days a week, so you can close your laptop and control everything from your phone.
+
+#### Option A: 1-Click Render Deployment
+1. Push your repository to GitHub (see [Pushing to GitHub](#-how-to-push-to-github) below).
+2. Go to [render.com](https://render.com) and create a **New Web Service**.
+3. Connect your GitHub repository.
+4. Select **Docker** environment (Render will automatically detect `Dockerfile` and `render.yaml`).
+5. Click **Deploy**. You will receive a live URL like `https://ai-trader-xxxx.onrender.com`.
+
+#### Option B: Railway Deployment
+1. Go to [railway.app](https://railway.app) and click **New Project** $\rightarrow$ **Deploy from GitHub repo**.
+2. Railway will automatically build the Docker container and provide a live public HTTPS URL.
+
+---
+
+### Step 2: Logging in to Zerodha Kite from Your Phone
+
+Because phone browsers (iOS Safari, Android Chrome) hide Developer Tools (F12), the terminal includes an interactive **Phone Login Guide**:
+
+1. Open your cloud website URL on your phone browser.
+2. Tap the **Broker Connect** button (Key icon in the top navigation bar).
+3. Select **Zerodha Kite** $\rightarrow$ **📱 Phone Login Guide**.
+4. Tap **Copy Script** to copy the 1-tap mobile bookmarklet.
+5. In a new tab, log in to [kite.zerodha.com](https://kite.zerodha.com).
+6. In your phone's address bar, type `javascript:` and paste the copied script $\rightarrow$ tap **Go / Enter**.
+7. A prompt will display your `enctoken`. Copy and paste it into the terminal.
+8. Tap **Connect ZERODHA** — you are now live and trading from your phone!
+
+> **💡 Pro Tip (100% Free 30-Day Mobile Token)**: If you use **Dhan**, you can generate a 30-day token directly inside the Dhan mobile app (*Profile $\rightarrow$ DhanHQ APIs $\rightarrow$ Generate Token*) without needing to copy cookies every day!
+
+---
+
+## 💻 Local Development Setup
+
+If you wish to run the platform locally on your machine:
+
+### Prerequisites
+- Python 3.10+
+- Node.js 18+ and npm
+
+### 1. Start Backend Engine
+```bash
+cd backend
+python -m venv venv
+# On Windows:
+.\venv\Scripts\activate
+# On Linux/macOS:
+source venv/bin/activate
+
+pip install -r requirements.txt
+python -m uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload
 ```
-- **Trading Dashboard UI**: [http://localhost:5173](http://localhost:5173)
-- **FastAPI Interactive Docs**: [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs)
+
+### 2. Start Frontend UI
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+Open your browser at `http://localhost:5173`.
 
 ---
 
-## 🌐 Hosting & Accessing from Anywhere (Mobile / Remote)
+## 🛠️ Testing & Verification
 
-### Option A: Free Cloudflare Tunnel (Recommended - Zero Server Cost)
-Keep your laptop/PC running and access your dashboard securely on your phone from anywhere in the world:
-1. Download Cloudflare Tunnel (`cloudflared`):
-   ```cmd
-   winget install Cloudflare.cloudflared
-   ```
-2. Start tunnel for your frontend:
-   ```cmd
-   cloudflared tunnel --url http://localhost:5173
-   ```
-3. Open the generated HTTPS link on your phone.
+Run automated backend unit tests:
+```bash
+cd backend
+python -m pytest
+```
 
-### Option B: Deploy to Cloud VPS / Railway / Render
-1. Push this repository to a **Private GitHub Repository**:
-   ```cmd
-   git init
-   git add .
-   git commit -m "Initial AI Signals Trading Platform"
-   git branch -M main
-   git remote add origin https://github.com/<YOUR_USERNAME>/<YOUR_REPO_NAME>.git
-   git push -u origin main
-   ```
-2. Deploy backend (`f:\Trader\backend`):
-   - Command: `uvicorn app.main:app --host 0.0.0.0 --port 8000`
-3. Deploy frontend (`f:\Trader\frontend`):
-   - Command: `npm run build`
+Build production frontend:
+```bash
+cd frontend
+npm run build
+```
+
+---
+
+## 📤 How to Push to GitHub
+
+To push your clean codebase to GitHub:
+
+```bash
+# 1. Initialize git remote if not already set:
+# git remote add origin https://github.com/<your-username>/<your-repo-name>.git
+
+# 2. Stage all files:
+git add .
+
+# 3. Commit your changes:
+git commit -m "feat: Indian Equities NSE/BSE trading terminal with 24/7 cloud support and mobile Kite login"
+
+# 4. Push to master / main branch:
+git push origin master
+```
+
+---
+
+## 🛡️ Architecture & Security
+
+- **No Stored Plaintext Credentials**: Broker session tokens are kept in memory and secured environment variables.
+- **Kill Switch Protection**: 1-tap hardware stop to immediately close open positions and halt new order triggers.
+- **Fail-Safe Circuit Breaker**: Auto-trips if daily portfolio loss threshold is reached.

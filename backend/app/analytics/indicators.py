@@ -176,34 +176,53 @@ def detect_market_structure(df: pd.DataFrame) -> Dict[str, Any]:
 def enrich_dataframe_with_indicators(df: pd.DataFrame) -> pd.DataFrame:
     """Enrich raw OHLCV DataFrame with complete quantitative technical indicators."""
     df = df.copy()
-    if df.empty or len(df) < 20:
+    if df.empty:
         return df
 
+    close = df['close']
+    high = df['high']
+    low = df['low']
+
     # EMAs
-    df['ema_9'] = calculate_ema(df['close'], 9)
-    df['ema_21'] = calculate_ema(df['close'], 21)
-    df['ema_50'] = calculate_ema(df['close'], 50)
-    df['ema_200'] = calculate_ema(df['close'], min(200, len(df)))
+    df['ema_9'] = calculate_ema(close, min(9, max(2, len(df))))
+    df['ema_21'] = calculate_ema(close, min(21, max(2, len(df))))
+    df['ema_50'] = calculate_ema(close, min(50, max(2, len(df))))
+    df['ema_200'] = calculate_ema(close, min(200, max(2, len(df))))
     
     # RSI
-    df['rsi'] = calculate_rsi(df['close'], 14)
+    df['rsi'] = calculate_rsi(close, min(14, max(2, len(df))))
     
     # MACD
-    df['macd'], df['macd_signal'], df['macd_hist'] = calculate_macd(df['close'], 12, 26, 9)
+    df['macd'], df['macd_signal'], df['macd_hist'] = calculate_macd(close, min(12, max(2, len(df))), min(26, max(3, len(df))), min(9, max(2, len(df))))
     
     # ATR
-    df['atr'] = calculate_atr(df['high'], df['low'], df['close'], 14)
+    df['atr'] = calculate_atr(high, low, close, min(14, max(2, len(df))))
     
     # SuperTrend
-    df['supertrend'], df['supertrend_dir'] = calculate_supertrend(df['high'], df['low'], df['close'], period=10, multiplier=3.0)
+    df['supertrend'], df['supertrend_dir'] = calculate_supertrend(high, low, close, period=min(10, max(2, len(df))), multiplier=3.0)
     
-    # VWAP
-    df['vwap'], df['vwap_upper'], df['vwap_lower'] = calculate_vwap(df)
+    # VWAP (if volume exists)
+    if 'volume' in df.columns and (df['volume'] > 0).any():
+        df['vwap'], df['vwap_upper'], df['vwap_lower'] = calculate_vwap(df)
+    else:
+        df['vwap'] = close
+        df['vwap_upper'] = close * 1.01
+        df['vwap_lower'] = close * 0.99
     
     # Bollinger Bands
-    df['bb_upper'], df['bb_mid'], df['bb_lower'] = calculate_bollinger_bands(df['close'], 20, 2.0)
+    df['bb_upper'], df['bb_mid'], df['bb_lower'] = calculate_bollinger_bands(close, min(20, max(2, len(df))), 2.0)
     
     # ADX
-    df['adx'], df['plus_di'], df['minus_di'] = calculate_adx(df['high'], df['low'], df['close'], 14)
+    df['adx'], df['plus_di'], df['minus_di'] = calculate_adx(high, low, close, min(14, max(2, len(df))))
+
+    # Guarantee all expected columns exist
+    defaults = {
+        'ema_9': close, 'ema_21': close, 'ema_50': close, 'ema_200': close,
+        'rsi': 50.0, 'macd': 0.0, 'macd_signal': 0.0, 'macd_hist': 0.0,
+        'supertrend': close, 'supertrend_dir': 0, 'vwap': close
+    }
+    for col, default_val in defaults.items():
+        if col not in df.columns:
+            df[col] = default_val
 
     return df

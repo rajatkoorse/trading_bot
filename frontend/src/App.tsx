@@ -1,9 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Navbar } from './components/Navbar';
 import { LiveTickerMarquee } from './components/LiveTickerMarquee';
-import { PortfolioSummary } from './components/PortfolioSummary';
 import { RealtimeFundsHub } from './components/RealtimeFundsHub';
-import { OlympTradeHub } from './components/OlympTradeHub';
 import { TradingChart } from './components/TradingChart';
 import { SignalFeed } from './components/SignalFeed';
 import { ActivePositions } from './components/ActivePositions';
@@ -38,7 +36,7 @@ export const App: React.FC = () => {
   const [isDiscordOpen, setIsDiscordOpen] = useState<boolean>(false);
   const [isRiskOpen, setIsRiskOpen] = useState<boolean>(false);
   const [isBrokerOpen, setIsBrokerOpen] = useState<boolean>(false);
-  const [activeView, setActiveView] = useState<'INDIAN_NSE' | 'OLYMPTRADE' | 'BACKTEST'>('INDIAN_NSE');
+  const [activeView, setActiveView] = useState<'INDIAN_NSE' | 'BACKTEST'>('INDIAN_NSE');
 
   // Load initial data
   const refreshAllData = async () => {
@@ -65,7 +63,7 @@ export const App: React.FC = () => {
 
   useEffect(() => {
     refreshAllData();
-    const interval = setInterval(refreshAllData, 4000);
+    const interval = setInterval(refreshAllData, 3000);
     return () => clearInterval(interval);
   }, []);
 
@@ -168,21 +166,16 @@ export const App: React.FC = () => {
     }
   };
 
-  const handleResetPaper = async () => {
-    if (window.confirm('Reset Paper Trading account back to ₹1,00,000?')) {
-      await api.resetPaperAccount(100000);
-      refreshAllData();
-    }
-  };
-
   const latestSignal = signals.find((s) => s.symbol === selectedSymbol) || null;
   const currentSymbolPrice = realtimeTicks[selectedSymbol] || watchlist.find((w) => w.symbol === selectedSymbol)?.price || 0;
 
   return (
     <div className="min-h-screen bg-[#0a0e17] text-slate-100 flex flex-col font-sans">
       
-      {/* Top Navigation */}
+      {/* Top Navbar */}
       <Navbar
+        activeView={activeView}
+        onSelectView={setActiveView}
         botStatus={botStatus}
         onToggleBot={handleToggleBot}
         onToggleKillSwitch={handleToggleKillSwitch}
@@ -191,59 +184,19 @@ export const App: React.FC = () => {
         onOpenBrokerModal={() => setIsBrokerOpen(true)}
       />
 
-      {/* Live Real-Time Ticker Marquee */}
-      <LiveTickerMarquee
-        watchlist={watchlist}
-        selectedSymbol={selectedSymbol}
-        onSelectSymbol={setSelectedSymbol}
-        ticks={realtimeTicks}
-        onWatchlistUpdated={refreshAllData}
-      />
+      {/* Live Real-Time Ticker Marquee - Active in Indian Equities Mode */}
+      {activeView === 'INDIAN_NSE' && (
+        <LiveTickerMarquee
+          watchlist={watchlist}
+          selectedSymbol={selectedSymbol}
+          onSelectSymbol={setSelectedSymbol}
+          ticks={realtimeTicks}
+          onWatchlistUpdated={refreshAllData}
+        />
+      )}
 
       {/* Main Workspace Container */}
-      <main className="flex-1 max-w-[1700px] w-full mx-auto p-4 space-y-4">
-        
-        {/* Navigation Tabs (Indian Terminal vs 24/7 Olymp Trade vs Quant Backtesting) */}
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="flex bg-[#111827] p-1 rounded-xl border border-slate-800 text-xs font-bold font-mono">
-            <button
-              onClick={() => setActiveView('INDIAN_NSE')}
-              className={`px-4 py-1.5 rounded-lg transition-all ${
-                activeView === 'INDIAN_NSE'
-                  ? 'bg-blue-600 text-white shadow-md'
-                  : 'text-slate-400 hover:text-slate-200'
-              }`}
-            >
-              🇮🇳 Indian Equities (NSE / BSE)
-            </button>
-            <button
-              onClick={() => setActiveView('OLYMPTRADE')}
-              className={`flex items-center gap-1.5 px-4 py-1.5 rounded-lg transition-all ${
-                activeView === 'OLYMPTRADE'
-                  ? 'bg-gradient-to-r from-cyan-600 to-blue-600 text-white shadow-md'
-                  : 'text-slate-400 hover:text-slate-200'
-              }`}
-            >
-              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-              <span>🌐 24/7 Olymp Trade Global Engine</span>
-            </button>
-            <button
-              onClick={() => setActiveView('BACKTEST')}
-              className={`px-4 py-1.5 rounded-lg transition-all ${
-                activeView === 'BACKTEST'
-                  ? 'bg-blue-600 text-white shadow-md'
-                  : 'text-slate-400 hover:text-slate-200'
-              }`}
-            >
-              Strategy Backtesting Studio
-            </button>
-          </div>
-
-          <div className="text-xs text-slate-400 font-mono hidden md:flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-            <span>Minimal-Loss Guard Active (1.0% Risk / BE Lock @ 1.0R)</span>
-          </div>
-        </div>
+      <main className="flex-1 max-w-[1700px] w-full mx-auto p-3 sm:p-4 space-y-4">
 
         {activeView === 'INDIAN_NSE' ? (
           <>
@@ -255,10 +208,10 @@ export const App: React.FC = () => {
               onOpenBrokerModal={() => setIsBrokerOpen(true)}
             />
 
-            {/* 2. Main Workstation 2-Column Grid */}
+            {/* 2. Main Workstation Grid */}
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
               
-              {/* Left Column: Pro Chart + Quick Trade Pad & Positions (8 cols) */}
+              {/* Left Column: Pro Chart + Active Positions & Journal (8 cols) */}
               <div className="lg:col-span-8 space-y-4">
                 <TradingChart
                   symbol={selectedSymbol}
@@ -311,9 +264,6 @@ export const App: React.FC = () => {
 
             </div>
           </>
-        ) : activeView === 'OLYMPTRADE' ? (
-          /* Olymp Trade 24/7 Global Workspace */
-          <OlympTradeHub />
         ) : (
           /* Backtest Studio View */
           <BacktestStudio />
